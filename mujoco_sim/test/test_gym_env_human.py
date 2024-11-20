@@ -11,9 +11,11 @@ from mujoco_sim.envs.wrappers import SpacemouseIntervention, ZOnlyWrapper, ObsWr
 # glfw init
 glfw.init()
 
-env = envs.ur5ePickCubeGymEnv(action_scale=(0.1,0.1, 1))
-env = SpacemouseIntervention(env)
+# env = envs.ur5ePickCubeGymEnv(action_scale=(0.005,0.005, 1))
+env = envs.ur5ePegInHoleGymEnv(action_scale=(0.005,0.005, 1))
+
 env = GripperCloseEnv(env)
+env = SpacemouseIntervention(env)
 env = ObsWrapper(env)
 env = ZOnlyWrapper(env)
 
@@ -45,10 +47,13 @@ def key_callback(keycode):
         reset = True
 
 
-env.reset()
+# env.reset()
 start_time = time.time()
 with mujoco.viewer.launch_passive(m, d, key_callback=key_callback, show_right_ui= False) as viewer:
     start = time.time()
+    env.external_viewer = viewer
+    env.reset()
+    
     while viewer.is_running():
         if reset:
             env.reset()

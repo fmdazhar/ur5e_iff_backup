@@ -29,6 +29,7 @@ class ur5ePickCubeGymEnv(MujocoGymEnv):
         render_spec: GymRenderingSpec = GymRenderingSpec(),
         render_mode: Literal["rgb_array", "human"] = "rgb_array",
         image_obs: bool = False,
+        viewer=None
     ):
         self._action_scale = action_scale
 
@@ -167,6 +168,7 @@ class ur5ePickCubeGymEnv(MujocoGymEnv):
             dtype=np.float32,
         )
 
+        self.external_viewer = viewer
 
         from gymnasium.envs.mujoco.mujoco_rendering import MujocoRenderer
 
@@ -193,17 +195,147 @@ class ur5ePickCubeGymEnv(MujocoGymEnv):
         tcp_pos = self._data.sensor("hande/pinch_pos").data
         self._data.mocap_pos[0] = tcp_pos
 
+        mujoco.mj_forward(self._model, self._data)  # Update the state again after block position change
+
         # Sample a new block position.
         block_xy = np.random.uniform(*_SAMPLING_BOUNDS)
         self._data.jnt("block").qpos[:3] = (*block_xy, self._block_z)
 
-        mujoco.mj_forward(self._model, self._data)
+        mujoco.mj_forward(self._model, self._data)  # Update the state after block position change
 
-        # Cache the initial block height.
+        # Cache the initial block position.
+        block_pos = self._data.sensor("block_pos").data.copy()
+        # Define target positions.
+        safe_height = 0.1  # Safe height above the block.
+        above_block_pos = block_pos.copy()
+        above_block_pos[2] += safe_height
+        # Move to position above the block.
+        tolerance = 0.005  # Position tolerance
+        max_steps = 500  # Maximum steps to prevent infinite loops
+         # Cache the initial block height.
         self._success = np.array([0.3, 0.0, 0.3])  # Replace with actual target position if available
+
+        steps = 0
+        while True:
+            current_tcp_pos = self._data.sensor("hande/pinch_pos").data.copy()
+            distance = np.linalg.norm(above_block_pos - current_tcp_pos)
+            if distance <= tolerance:
+                break  # Goal reached
+            delta_pos = (above_block_pos - current_tcp_pos) 
+            action_pos = np.clip(delta_pos, -1.0, 1.0)
+            action = np.zeros(7)
+            action[0:3] = action_pos
+            self.step(action)
+            # Update the external viewer
+            if self.external_viewer is not None:
+                self.external_viewer.sync()
+            steps += 1
+            if steps >= max_steps:
+                print("Warning: Maximum steps reached while moving above block.")
+                break  # Prevent infinite loop      
+        print("Moved to position above the block.")
+        # Move down to the block.
+        grasp_height = block_pos[2]  # Slightly above the block.
+        grasp_pos = block_pos.copy()
+        grasp_pos[2] = grasp_height
+
+        steps = 0
+        while True:
+            current_tcp_pos = self._data.sensor("hande/pinch_pos").data.copy()
+            distance = np.linalg.norm(grasp_pos - current_tcp_pos)
+            if distance <= tolerance:
+                break  # Goal reached
+            delta_pos = (grasp_pos - current_tcp_pos)
+            action_pos = np.clip(delta_pos, -1.0, 1.0)
+            action = np.zeros(7)
+            action[0:3] = action_pos
+            self.step(action)
+            # Update the external viewer
+            if self.external_viewer is not None:
+                self.external_viewer.sync()
+            steps += 1
+            if steps >= max_steps:
+                print("Warning: Maximum steps reached while moving down to block.")
+                break  # Prevent infinite loop
+        print("Moved down to the block.")
+        # Close the gripper to grasp the block.
+        gripper_tolerance = 0.001
+        steps = 0
+        while True:
+            gripper_pos = self._data.ctrl[self._gripper_ctrl_id] / 255
+            if abs(gripper_pos - 1.0) <= gripper_tolerance:
+                break  # Gripper closed
+            action = np.zeros(7)
+            action[6] = 1.0  # Close gripper action.
+            self.step(action)
+            # Update the external viewer
+            if self.external_viewer is not None:
+                self.external_viewer.sync()
+            steps += 1
+            if steps >= max_steps:
+                print("Warning: Maximum steps reached while closing gripper.")
+                break  # Prevent infinite loop
+        print("Gripper closed.")
+        # Move back up with the block.
+        steps = 0
+        while True:
+            current_tcp_pos = self._data.sensor("hande/pinch_pos").data.copy()
+            distance = np.linalg.norm(above_block_pos - current_tcp_pos)
+            if distance <= tolerance:
+                break  # Goal reached
+            delta_pos = (above_block_pos - current_tcp_pos)
+            action_pos = np.clip(delta_pos, -1.0, 1.0)
+            action = np.zeros(7)
+            action[0:3] = action_pos
+            self.step(action)
+            # Update the external viewer
+            if self.external_viewer is not None:
+                self.external_viewer.sync()
+            steps += 1
+            if steps >= max_steps:
+                print("Warning: Maximum steps reached while moving back up.")
+                break  # Prevent infinite loop
+        print("Moved back up.")
+
+        print("Reset done")
 
         obs = self._compute_observation()
         return obs, {}
+
+    def get_state(self):
+        """Return MjSimState instance for current state."""
+        return np.concatenate([[self.data.time], np.copy(self.data.qpos), np.copy(self.data.qvel)], axis=0)
+
+
+    # def reset(
+    #     self, seed=None, **kwargs
+    # ) -> Tuple[Dict[str, np.ndarray], Dict[str, Any]]:
+    #     """Reset the environment."""
+    #     mujoco.mj_resetData(self._model, self._data)
+
+    #     # Reset arm to home position.
+    #     self._data.qpos[self._ur5e_dof_ids] = _UR5E_HOME
+    #     self._data.qvel[self._ur5e_dof_ids] = 0  # Ensure joint velocities are zero
+
+    #     mujoco.mj_forward(self._model, self._data)
+
+    #     # Reset mocap body to home position.
+    #     tcp_pos = self._data.sensor("hande/pinch_pos").data
+    #     self._data.mocap_pos[0] = tcp_pos
+
+    #     mujoco.mj_forward(self._model, self._data)  # Update the state again after block position change
+
+    #     # Sample a new block position.
+    #     block_xy = np.random.uniform(*_SAMPLING_BOUNDS)
+    #     self._data.jnt("block").qpos[:3] = (*block_xy, self._block_z)
+
+    #     mujoco.mj_forward(self._model, self._data)
+
+    #     # Cache the initial block height.
+    #     self._success = np.array([0.3, 0.0, 0.3])  # Replace with actual target position if available
+
+    #     obs = self._compute_observation()
+    #     return obs, {}
 
     def step(
         self, action: np.ndarray

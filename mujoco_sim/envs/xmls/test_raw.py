@@ -3,7 +3,7 @@ import mujoco.viewer as mujoco_viewer
 import os
 
 # Load the model XML file
-xml_path = "port_changed.xml"
+xml_path = "connector_changed.xml"
 if not os.path.exists(xml_path):
     raise FileNotFoundError(f"XML file '{xml_path}' does not exist.")
 

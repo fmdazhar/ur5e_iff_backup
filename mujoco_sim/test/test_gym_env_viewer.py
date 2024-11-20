@@ -7,7 +7,7 @@ from mujoco_sim.utils.viz import SliderController
 from mujoco_sim.envs.wrappers import SpacemouseIntervention
 
 # Initialize the environment and controller
-env = envs.ur5ePickCubeGymEnv(image_obs=False, action_scale=(0.01, 0.01, 1))
+env = envs.ur5ePegInHoleGymEnv(image_obs=False, action_scale=(0.1, 0.1, 1))
 action_spec = env.action_space
 
 # Define indices for UR5e DOF and gripper
@@ -211,8 +211,8 @@ while viewer.is_alive:
         viewer.add_marker(
             pos=mocap_pos,
             mat=rotation_matrix,
-            size=[0.01, 0.01, 0.2],
-            rgba=[0, 1, 1, 0.6],
+            size=[0.001, 0.001, 0.5],
+            rgba=[0, 1, 1, 0.3],
             type=mujoco.mjtGeom.mjGEOM_ARROW,
         )
 

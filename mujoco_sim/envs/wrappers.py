@@ -200,7 +200,8 @@ class GripperCloseEnv(gym.ActionWrapper):
 
     def action(self, action: np.ndarray) -> np.ndarray:
         new_action = np.zeros((7,), dtype=np.float32)
-        new_action[:6] = action.copy()
+        new_action[:7] = action.copy()
+        new_action[6] = 1  # Set the gripper to closed
         return new_action
 
     def step(self, action):

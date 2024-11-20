@@ -6,13 +6,6 @@ import mujoco
 import numpy as np
 from gym import spaces
 
-# try:
-#     import mujoco_py
-# except ImportError as e:
-#     MUJOCO_PY_IMPORT_ERROR = e
-# else:
-#     MUJOCO_PY_IMPORT_ERROR = None
-
 from mujoco_sim.controllers import Controller
 from mujoco_sim.mujoco_gym_env import GymRenderingSpec, MujocoGymEnv
 
@@ -59,6 +52,8 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         self.render_mode = render_mode
         self.camera_id = (0, 1)
         self.image_obs = image_obs
+        self.reward_shaping = True  # Store the reward shaping flag
+        self.terminate = False
 
         # Caching.
         # Caching UR5e joint and actuator IDs.
@@ -105,8 +100,8 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
             {
                 "state": gym.spaces.Dict(
                     {
-                        "ur5e/tcp_pos": spaces.Box(
-                            -np.inf, np.inf, shape=(3,), dtype=np.float32
+                        "ur5e/tcp_pose": spaces.Box(
+                            -np.inf, np.inf, shape=(6,), dtype=np.float32
                         ),
                         "ur5e/tcp_vel": spaces.Box(
                             -np.inf, np.inf, shape=(3,), dtype=np.float32
@@ -116,10 +111,10 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
                         ),
                         # "ur5e/joint_pos": spaces.Box(-np.inf, np.inf, shape=(7,), dtype=np.float32),
                         # "ur5e/joint_vel": spaces.Box(-np.inf, np.inf, shape=(7,), dtype=np.float32),
-                        # "ur5e/joint_torque": specs.Array(shape=(21,), dtype=np.float32),
-                        # "ur5e/wrist_force": specs.Array(shape=(3,), dtype=np.float32),
-                        "block_pos": spaces.Box(
-                            -np.inf, np.inf, shape=(3,), dtype=np.float32
+                        "ur5e/wrist_force": spaces.Box(-np.inf, np.inf, shape=(3,), dtype=np.float32),
+                        "ur5e/wrist_torque": spaces.Box(-np.inf, np.inf, shape=(3,), dtype=np.float32),
+                        "connector_pose": spaces.Box(
+                            -np.inf, np.inf, shape=(6,), dtype=np.float32
                         ),
                     }
                 ),
@@ -131,8 +126,8 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
                 {
                     "state": gym.spaces.Dict(
                         {
-                            "ur5e/tcp_pos": spaces.Box(
-                                -np.inf, np.inf, shape=(3,), dtype=np.float32
+                            "ur5e/tcp_pose": spaces.Box(
+                                -np.inf, np.inf, shape=(6,), dtype=np.float32
                             ),
                             "ur5e/tcp_vel": spaces.Box(
                                 -np.inf, np.inf, shape=(3,), dtype=np.float32
@@ -140,6 +135,10 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
                             "ur5e/gripper_pos": spaces.Box(
                                 -np.inf, np.inf, shape=(1,), dtype=np.float32
                             ),
+                            "ur5e/wrist_force": spaces.Box(
+                                -np.inf, np.inf, shape=(3,), dtype=np.float32),
+                            "ur5e/wrist_torque": spaces.Box(
+                                -np.inf, np.inf, shape=(3,), dtype=np.float32),
                         }
                     ),
                     "images": gym.spaces.Dict(
@@ -167,6 +166,7 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
             dtype=np.float32,
         )
 
+        self.external_viewer = None
 
         from gymnasium.envs.mujoco.mujoco_rendering import MujocoRenderer
 
@@ -189,9 +189,9 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
 
         mujoco.mj_forward(self._model, self._data)
 
-        # Reset mocap body to home position.
-        tcp_pos = self._data.sensor("hande/pinch_pos").data
-        self._data.mocap_pos[0] = tcp_pos
+        # # Reset mocap body to home position.
+        # tcp_pos = self._data.sensor("hande/pinch_pos").data
+        # self._data.mocap_pos[0] = tcp_pos
 
         # Define plate bounds
         port_xy = np.random.uniform(*_SAMPLING_BOUNDS)
@@ -199,37 +199,45 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
 
         mujoco.mj_forward(self._model, self._data)
 
-        plate_pos = self._data.geom("plate").xpos
-        plate_size = self._model.geom("plate").size
-        connector_radius = self._model.geom("connector_back").size # Assuming the first size is the radius
+        # Reset mocap body to home position.
+        self._data.mocap_pos[0] = (*port_xy, self._port_z + 0.1)
+        self._data.mocap_quat[0] = np.array([0, 0.707, -0.707, 0])
 
-        plate_bounds = [
-            [plate_pos[0] - plate_size[0] - connector_radius[0], plate_pos[1] - plate_size[1] - connector_radius[0]],
-            [plate_pos[0] + plate_size[0] + connector_radius[1], plate_pos[1] + plate_size[1] + connector_radius[1]],
-        ]
+        # plate_pos = self._data.geom("plate").xpos
+        # plate_size = self._model.geom("plate").size
+        # connector_radius = self._model.geom("connector_back").size # Assuming the first size is the radius
 
-        # Sample connector position avoiding the plate bounds
-        while True:
-            connector_xy = np.random.uniform(*_SAMPLING_BOUNDS)
-            if not (
-                plate_bounds[0][0] <= connector_xy[0] <= plate_bounds[1][0]
-                and plate_bounds[0][1] <= connector_xy[1] <= plate_bounds[1][1]
-            ):
-                break
-        # connector_xy = np.random.uniform(*_SAMPLING_BOUNDS)
-        self._data.jnt("connector").qpos[:3] = (*connector_xy, self._connector_z)
+        # plate_bounds = [
+        #     [plate_pos[0] - plate_size[0] - connector_radius[0], plate_pos[1] - plate_size[1] - connector_radius[0]],
+        #     [plate_pos[0] + plate_size[0] + connector_radius[1], plate_pos[1] + plate_size[1] + connector_radius[1]],
+        # ]
+
+        # # Sample connector position avoiding the plate bounds
+        # while True:
+        #     connector_xy = np.random.uniform(*_SAMPLING_BOUNDS)
+        #     if not (
+        #         plate_bounds[0][0] <= connector_xy[0] <= plate_bounds[1][0]
+        #         and plate_bounds[0][1] <= connector_xy[1] <= plate_bounds[1][1]
+        #     ):
+        #         break
+        # self._data.jnt("connector").qpos[:3] = (*connector_xy, self._connector_z)
 
         # # Reset mocap body to home position.
         # self._data.mocap_pos[0] = (*connector_xy + 0.01, self._connector_z + 0.025)
 
         mujoco.mj_forward(self._model, self._data)
 
-        # Cache the initial block height.
-        self._connector_init = self._data.sensor("block_pos").data[:3]
+        # Cache the initial connector height.
+        self._connector_init = self._data.sensor("connector_pos").data[:3]
         self._connector_success = np.array([0.3, 0.0, 0.3])
+        self.terminate = False
 
         obs = self._compute_observation()
         return obs, {}
+    
+    def get_state(self):
+        """Return MjSimState instance for current state."""
+        return np.concatenate([[self.data.time], np.copy(self.data.qpos), np.copy(self.data.qvel)], axis=0)
 
     def step(
         self, action: np.ndarray
@@ -246,7 +254,7 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
             truncated: bool,
             info: dict[str, Any]
         """
-        x, y, z, grasp, qx, qy, qz = action
+        x, y, z,  qx, qy, qz, grasp = action
 
         # Set the position.
         pos = self._data.mocap_pos[0].copy()
@@ -269,7 +277,6 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         self._data.ctrl[self._gripper_ctrl_id] = ng * 255
 
         for _ in range(self._n_substeps):
-
             ctrl = self.controller.control(
                 pos=self._data.mocap_pos[0].copy(),
                 ori=self._data.mocap_quat[0].copy(),
@@ -295,10 +302,10 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
             mujoco.mj_step(self._model, self._data)
             
         obs = self._compute_observation()
-        rew = self._compute_reward()
-        terminated = self.time_limit_exceeded()
+        rew, task_complete = self._compute_reward(obs)
+        terminated = self.time_limit_exceeded() or task_complete or self.terminate
 
-        return obs, rew, terminated, False, {}
+        return obs, rew, terminated, False, {"succeed": task_complete}
 
     def render(self):
         rendered_frames = []
@@ -324,8 +331,11 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         obs = {}
         obs["state"] = {}
 
-        tcp_pos = self._data.sensor("hande/pinch_pos").data
-        obs["state"]["ur5e/tcp_pos"] = tcp_pos.astype(np.float32)
+        tcp_pos = self._data.sensor("hande/pinch_pos").data.astype(np.float32)
+        tcp_ori_quat = self._data.sensor("hande/pinch_quat").data.astype(np.float32)
+        tcp_ori_euler = np.zeros(3)
+        mujoco.mju_quat2Vel(tcp_ori_euler, tcp_ori_quat, 1.0)
+        obs["state"]["ur5e/tcp_pose"] = np.concatenate((tcp_pos,tcp_ori_euler))                       
 
         tcp_vel = self._data.sensor("hande/pinch_vel").data
         obs["state"]["ur5e/tcp_vel"] = tcp_vel.astype(np.float32)
@@ -345,57 +355,72 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         # ).ravel()
         # obs["ur5e/joint_vel"] = joint_vel.astype(np.float32)
 
-        # joint_torque = np.stack(
-        # [self._data.sensor(f"ur5e/joint{i}_torque").data for i in range(1, 8)],
-        # ).ravel()
-        # obs["ur5e/joint_torque"] = symlog(joint_torque.astype(np.float32))
+        wrist_force = self._data.sensor("ur5e/wrist_force").data.astype(np.float32)
+        obs["state"]["ur5e/wrist_force"] = wrist_force.astype(np.float32)
 
-        # wrist_force = self._data.sensor("ur5e/wrist_force").data.astype(np.float32)
-        # obs["ur5e/wrist_force"] = symlog(wrist_force.astype(np.float32))
+        wrist_torque = self._data.sensor("ur5e/wrist_torque").data.astype(np.float32)
+        obs["state"]["ur5e/wrist_torque"] = wrist_torque.astype(np.float32)
 
         if self.image_obs:
             obs["images"] = {}
             obs["images"]["front"], obs["images"]["wrist"] = self.render()
         else:
-            block_pos = self._data.sensor("connector_pos").data.astype(np.float32)
-            obs["state"]["block_pos"] = block_pos
+            connector_pos = self._data.sensor("connector_pos").data.astype(np.float32)
+            connector_ori_quat = self._data.sensor("connector_quat").data.astype(np.float32)
+            connector_ori_euler = np.zeros(3)
+            mujoco.mju_quat2Vel(connector_ori_euler, connector_ori_quat, 1.0)
+            obs["state"]["connector_pose"] = np.concatenate((connector_pos, connector_ori_euler))
 
         if self.render_mode == "human":
             self._viewer.render(self.render_mode)
 
         return obs
 
-    def _compute_reward(self) -> float:
-        connector_pos = self._data.sensor("connector_pos").data
-        tcp_pos = self._data.sensor("hande/pinch_pos").data
-        dist = np.linalg.norm(connector_pos - tcp_pos)
+    def _compute_reward(self, obs) -> float:
+        connector_pos = obs["state"]["connector_pose"][:3]
+        tcp_pos = obs["state"]["ur5e/tcp_pose"][:3]
+        port_pos = self._data.body(self._port_id).xpos
+        distance = np.linalg.norm(connector_pos - port_pos)
+        # Determine if the task is complete
+        task_complete = distance < 0.05
+
+        if self.reward_shaping:
+            # Dense rewards with shaping
+            # box_target: reward for the connector approaching the port position
+            box_target = 1 - np.tanh(5 * distance)
+
+            # gripper_box: reward for the gripper being close to the connector
+            dist = np.linalg.norm(connector_pos - tcp_pos)
+            gripper_box = 1 - np.tanh(5 * dist)
+
+            # Grasping reward
+            left_contact, _ = self._get_contact_info(self._left_finger_geom, self._block_geom)
+            right_contact, _ = self._get_contact_info(self._right_finger_geom, self._block_geom)
+            grasping_reward = 1.0 if left_contact < 0 and right_contact < 0 else 0.0
+
+            # no_floor_collision: reward for not colliding with the floor
+            left_dist, _ = self._get_contact_info(self._left_finger_geom, self._floor_geom)
+            right_dist, _ = self._get_contact_info(self._right_finger_geom, self._floor_geom)
+            hand_dist, _ = self._get_contact_info(self._hand_geom, self._floor_geom)
+            floor_collision = any(dist < 0 for dist in [left_dist, right_dist, hand_dist])
+            no_floor_collision = 1 - floor_collision
+
+            # Combine rewards with scaling
+            rew = (
+                4.0 * box_target +
+                2.0 * gripper_box +
+                0.25 * no_floor_collision *
+                0.25 * grasping_reward
+            )
+
+        else:
+            # Sparse rewards
+            rew = 12.5 if task_complete else 0.0
             
-        # 1. box_target: reward for the block approaching a target position
-        box_target = 1 - np.tanh(5 * np.linalg.norm(self._connector_success - connector_pos))
-        
-        # 2. gripper_box: reward for the gripper being close to the block
-        gripper_box = 1 - np.tanh(5 * dist)
-        
-        # 3. no_floor_collision: reward for not colliding with the floor
-        left_dist, _ = self._get_contact_info(self._left_finger_geom, self._floor_geom)
-        right_dist, _ = self._get_contact_info(self._right_finger_geom, self._floor_geom)
-        hand_dist, _ = self._get_contact_info(self._hand_geom, self._floor_geom)
-        floor_collision = any(dist < 0 for dist in [left_dist, right_dist, hand_dist])
-        no_floor_collision = 1 - floor_collision
-
-        # print(f"box_target: {box_target}, gripper_box: {gripper_box}, no_floor_collision: {no_floor_collision}")
-        
-        # Combine rewards with scaling
-        rew = (
-            8.0 * box_target + 
-            4.0 * gripper_box + 
-            0.25 * no_floor_collision
-        )
-
-        return rew
+        return rew, task_complete
 
 if __name__ == "__main__":
-    env = ur5ePickCubeGymEnv(render_mode="human")
+    env = ur5ePegInHoleGymEnv(render_mode="human")
     env.reset()
     for i in range(100):
         env.step(np.random.uniform(-1, 1, 7))

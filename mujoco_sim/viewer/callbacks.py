@@ -51,9 +51,9 @@ class Callbacks:
             if self.cam.fixedcamid >= self.model.ncam:
                 self.cam.fixedcamid = -1
                 self.cam.type = mujoco.mjtCamera.mjCAMERA_FREE
-        # Pause simulation
-        elif key == glfw.KEY_SPACE and self._paused is not None:
-            self._paused = not self._paused
+        # # Pause simulation
+        # elif key == glfw.KEY_SPACE and self._paused is not None:
+        #     self._paused = not self._paused
         # Advances simulation by one step.
         elif key == glfw.KEY_RIGHT and self._paused is not None:
             self._advance_by_one_step = True
