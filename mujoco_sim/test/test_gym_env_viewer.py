@@ -77,17 +77,48 @@ fig0.figurergba[3] = 0.2
 fig0.gridsize[0] = 10
 fig0.gridsize[1] = 5
 
-# Set up distinct colors for each axis in the target and current position lines
-viewer.add_line_to_fig(line_name="target_x", fig_idx=1, color=[0.85, 0.3, 0])  # Dark Orange
-viewer.add_line_to_fig(line_name="target_y", fig_idx=1, color=[0.2, 0.6, 0.2])  # Dark Green
-viewer.add_line_to_fig(line_name="target_z", fig_idx=1, color=[0.2, 0.4, 0.8])  # Deep Blue
+# # Set up distinct colors for each axis in the target and current position lines
+# viewer.add_line_to_fig(line_name="target_x", fig_idx=1, color=[0.85, 0.3, 0])  # Dark Orange
+# viewer.add_line_to_fig(line_name="target_y", fig_idx=1, color=[0.2, 0.6, 0.2])  # Dark Green
+# viewer.add_line_to_fig(line_name="target_z", fig_idx=1, color=[0.2, 0.4, 0.8])  # Deep Blue
 
-viewer.add_line_to_fig(line_name="current_x", fig_idx=1, color=[1, 0.5, 0.2])  # Light Orange
-viewer.add_line_to_fig(line_name="current_y", fig_idx=1, color=[0.4, 0.9, 0.4])  # Light Green
-viewer.add_line_to_fig(line_name="current_z", fig_idx=1, color=[0.3, 0.6, 1])  # Lighter Blue
+# viewer.add_line_to_fig(line_name="current_x", fig_idx=1, color=[1, 0.5, 0.2])  # Light Orange
+# viewer.add_line_to_fig(line_name="current_y", fig_idx=1, color=[0.4, 0.9, 0.4])  # Light Green
+# viewer.add_line_to_fig(line_name="current_z", fig_idx=1, color=[0.3, 0.6, 1])  # Lighter Blue
+
+# fig1 = viewer.figs[1]
+# fig1.title = "End-Effector Position Tracking"
+# fig1.xlabel = "Timesteps"
+# fig1.flg_legend = True
+# fig1.figurergba[0] = 0.2
+# fig1.figurergba[3] = 0.2
+# fig1.gridsize[0] = 5
+# fig1.gridsize[1] = 5
+
+# # Add a new figure for orientation tracking
+# # Figure 2: End-Effector Orientation Tracking
+# viewer.add_line_to_fig(line_name="target_ori_x", fig_idx=2, color=[0.85, 0.3, 0])  # Dark Orange
+# viewer.add_line_to_fig(line_name="target_ori_y", fig_idx=2, color=[0.2, 0.6, 0.2])  # Dark Green
+# viewer.add_line_to_fig(line_name="target_ori_z", fig_idx=2, color=[0.2, 0.4, 0.8])  # Deep Blue
+
+# viewer.add_line_to_fig(line_name="current_ori_x", fig_idx=2, color=[1, 0.5, 0.2])  # Light Orange
+# viewer.add_line_to_fig(line_name="current_ori_y", fig_idx=2, color=[0.4, 0.9, 0.4])  # Light Green
+# viewer.add_line_to_fig(line_name="current_ori_z", fig_idx=2, color=[0.3, 0.6, 1])  # Lighter Blue
+
+# fig2 = viewer.figs[2]
+# fig2.title = "End-Effector Orientation Tracking"
+# fig2.xlabel = "Timesteps"
+# fig2.flg_legend = True
+# fig2.figurergba[0] = 0.2
+# fig2.figurergba[3] = 0.2
+# fig2.gridsize[0] = 5
+# fig2.gridsize[1] = 5
+
+# Figure 1: Rewards
+viewer.add_line_to_fig(line_name="dense_reward", fig_idx=1, color=[0.6, 0, 0])  # Red
 
 fig1 = viewer.figs[1]
-fig1.title = "End-Effector Position Tracking"
+fig1.title = "Rewards"
 fig1.xlabel = "Timesteps"
 fig1.flg_legend = True
 fig1.figurergba[0] = 0.2
@@ -95,24 +126,19 @@ fig1.figurergba[3] = 0.2
 fig1.gridsize[0] = 5
 fig1.gridsize[1] = 5
 
-# Add a new figure for orientation tracking
-# Figure 2: End-Effector Orientation Tracking
-viewer.add_line_to_fig(line_name="target_ori_x", fig_idx=2, color=[0.85, 0.3, 0])  # Dark Orange
-viewer.add_line_to_fig(line_name="target_ori_y", fig_idx=2, color=[0.2, 0.6, 0.2])  # Dark Green
-viewer.add_line_to_fig(line_name="target_ori_z", fig_idx=2, color=[0.2, 0.4, 0.8])  # Deep Blue
 
-viewer.add_line_to_fig(line_name="current_ori_x", fig_idx=2, color=[1, 0.5, 0.2])  # Light Orange
-viewer.add_line_to_fig(line_name="current_ori_y", fig_idx=2, color=[0.4, 0.9, 0.4])  # Light Green
-viewer.add_line_to_fig(line_name="current_ori_z", fig_idx=2, color=[0.3, 0.6, 1])  # Lighter Blue
+# Figure 2: Joint Velocity
+viewer.add_line_to_fig(line_name="port_sensor", fig_idx=2, color=[0.6, 0, 0])  # Red
 
 fig2 = viewer.figs[2]
-fig2.title = "End-Effector Orientation Tracking"
+fig2.title = "Port Signal"
 fig2.xlabel = "Timesteps"
 fig2.flg_legend = True
 fig2.figurergba[0] = 0.2
 fig2.figurergba[3] = 0.2
 fig2.gridsize[0] = 5
 fig2.gridsize[1] = 5
+
 
 # Figure 3: Joint Velocity
 for joint_idx in ur5e_dof_indices:
@@ -198,7 +224,11 @@ while viewer.is_alive:
             action = sample()
             last_sample_time = time.time()
 
-        env.step(action)
+        obs, rew, terminated, truncated, info = env.step(action)
+        port_sensor = d.sensor("port_bottom_pos").data
+        connector_sensor = d.sensor("connector_bottom_pos").data
+        distance = np.linalg.norm(connector_sensor - port_sensor)
+        success = distance < 0.005
 
         # Add marker at mocap position
         mocap_pos = d.mocap_pos[0]
@@ -223,33 +253,37 @@ while viewer.is_alive:
         # Update gripper DOF line
         viewer.add_data_to_line(line_name="qpos_gripper", line_data=d.ctrl[gripper_dof_index] / 255, fig_idx=0)
 
-        # Update target and current position lines
-        viewer.add_data_to_line(line_name="target_x", line_data=mocap_pos[0], fig_idx=1)
-        viewer.add_data_to_line(line_name="target_y", line_data=mocap_pos[1], fig_idx=1)
-        viewer.add_data_to_line(line_name="target_z", line_data=mocap_pos[2], fig_idx=1)
+        # # Update target and current position lines
+        # viewer.add_data_to_line(line_name="target_x", line_data=mocap_pos[0], fig_idx=1)
+        # viewer.add_data_to_line(line_name="target_y", line_data=mocap_pos[1], fig_idx=1)
+        # viewer.add_data_to_line(line_name="target_z", line_data=mocap_pos[2], fig_idx=1)
         
-        viewer.add_data_to_line(line_name="current_x", line_data=tcp_pos[0], fig_idx=1)
-        viewer.add_data_to_line(line_name="current_y", line_data=tcp_pos[1], fig_idx=1)
-        viewer.add_data_to_line(line_name="current_z", line_data=tcp_pos[2], fig_idx=1)
+        # viewer.add_data_to_line(line_name="current_x", line_data=tcp_pos[0], fig_idx=1)
+        # viewer.add_data_to_line(line_name="current_y", line_data=tcp_pos[1], fig_idx=1)
+        # viewer.add_data_to_line(line_name="current_z", line_data=tcp_pos[2], fig_idx=1)
 
-        # Update target and current orientation lines
-        target_quat = d.mocap_quat[0]
-        target = np.zeros(3)
-        mujoco.mju_quat2Vel(target, target_quat, 1)
+        # # Update target and current orientation lines
+        # target_quat = d.mocap_quat[0]
+        # target = np.zeros(3)
+        # mujoco.mju_quat2Vel(target, target_quat, 1)
 
-        current_rot_mat = d.site_xmat[controller.site_id]
-        current = np.zeros(3)
-        site_quat = np.zeros(4)
-        mujoco.mju_mat2Quat(site_quat, current_rot_mat)
-        mujoco.mju_quat2Vel(current, site_quat, 1)
+        # current_rot_mat = d.site_xmat[controller.site_id]
+        # current = np.zeros(3)
+        # site_quat = np.zeros(4)
+        # mujoco.mju_mat2Quat(site_quat, current_rot_mat)
+        # mujoco.mju_quat2Vel(current, site_quat, 1)
 
-        viewer.add_data_to_line(line_name="target_ori_x", line_data=target[0], fig_idx=2)
-        viewer.add_data_to_line(line_name="target_ori_y", line_data=target[1], fig_idx=2)
-        viewer.add_data_to_line(line_name="target_ori_z", line_data=target[2], fig_idx=2)
+        # viewer.add_data_to_line(line_name="target_ori_x", line_data=target[0], fig_idx=2)
+        # viewer.add_data_to_line(line_name="target_ori_y", line_data=target[1], fig_idx=2)
+        # viewer.add_data_to_line(line_name="target_ori_z", line_data=target[2], fig_idx=2)
 
-        viewer.add_data_to_line(line_name="current_ori_x", line_data=current[0], fig_idx=2)
-        viewer.add_data_to_line(line_name="current_ori_y", line_data=current[1], fig_idx=2)
-        viewer.add_data_to_line(line_name="current_ori_z", line_data=current[2], fig_idx=2)
+        # viewer.add_data_to_line(line_name="current_ori_x", line_data=current[0], fig_idx=2)
+        # viewer.add_data_to_line(line_name="current_ori_y", line_data=current[1], fig_idx=2)
+        # viewer.add_data_to_line(line_name="current_ori_z", line_data=current[2], fig_idx=2)
+
+        # Update rewards plots
+        viewer.add_data_to_line(line_name="dense_reward", line_data=rew, fig_idx=1)
+        viewer.add_data_to_line(line_name="port_sensor", line_data=success, fig_idx=2)
 
         # Update Joint Velocity lines
         for joint_idx in ur5e_dof_indices:

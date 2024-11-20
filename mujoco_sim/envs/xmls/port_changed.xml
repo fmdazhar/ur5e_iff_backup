@@ -6,8 +6,8 @@
 
     <asset>
         <texture builtin="flat" height="256" width="256" rgb1="1 1 1" rgb2="1 1 1" type="skybox" />
-        <material name="table_mat" reflectance="0" rgba="0.2 0.2 0.2 0.1" shininess="0.5" specular="0" />
-        <material name="port_mat" reflectance="0" rgba="1 0.69 0.2 0.1" shininess="0.5" specular="0" />
+        <material name="table_mat" reflectance="0" rgba="0.2 0.2 0.2 1" shininess="0.5" specular="0" />
+        <material name="port_mat" reflectance="0" rgba="1 0.69 0.2 1" shininess="0.5" specular="0" />
     </asset>
 
     
@@ -35,9 +35,9 @@
                 <geom pos="-0.018840000152587896 -0.02743499946594238 0.0015" type="box" material="port_mat" size="0.0029300003051757812 0.018795000076293946 0.0015" />
                 <geom pos="-0.007955 -0.031229999542236323 0.0015" type="box" material="port_mat" size="0.007954999847412112 0.015 0.0015" />
 
-                <site name="port_bottom" type="sphere" pos="-0.008 0 0.0192" quat="0.7071 0 -0.7071 0" size="0.001 0.001 0.001" rgba="1 0 0 1"/>
-                <site name="port_centre" type="sphere" pos="-0.008 0 0.009600000381469725" quat="0.7071 0 -0.7071 0" size="0.001 0.001 0.001" rgba="1 0 0 1"/>
-                <site name="port_top" type="sphere" pos="-0.008 0 0" quat="0.7071 0 -0.7071 0" size="0.001 0.001 0.001" rgba="0.8 0.4 0.4 1"/>
+                <site name="port_bottom" type="sphere" pos="-0.008 0 0.017" quat="0.7071 0 0 0.7071" size="0.001 0.001 0.001" rgba="1 0 0 1"/>
+                <site name="port_centre" type="sphere" pos="-0.008 0 0.009600000381469725" quat="0.7071 0 0 0.7071" size="0.001 0.001 0.001" rgba="1 0 0 1"/>
+                <site name="port_top" type="sphere" pos="-0.008 0 0.0" quat="0.7071 0 0 0.7071" size="0.001 0.001 0.001" rgba="0.8 0.4 0.4 1"/>
             </body>
         </body>
     </worldbody>

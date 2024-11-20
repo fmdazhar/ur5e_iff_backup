@@ -47,13 +47,13 @@ def key_callback(keycode):
         reset = True
 
 
-# env.reset()
+env.reset()
 start_time = time.time()
 with mujoco.viewer.launch_passive(m, d, key_callback=key_callback, show_right_ui= False) as viewer:
     start = time.time()
-    env.external_viewer = viewer
-    env.reset()
-    
+    # env.external_viewer = viewer
+    # env.reset()
+
     while viewer.is_running():
         if reset:
             env.reset()
