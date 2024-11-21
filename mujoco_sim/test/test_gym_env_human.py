@@ -12,8 +12,7 @@ from mujoco_sim.envs.wrappers import SpacemouseIntervention, ZOnlyWrapper, ObsWr
 glfw.init()
 
 # env = envs.ur5ePickCubeGymEnv(action_scale=(0.005,0.005, 1))
-env = envs.ur5ePegInHoleGymEnv(action_scale=(0.005,0.005, 1))
-
+env = envs.ur5ePegInHoleGymEnv()
 env = GripperCloseEnv(env)
 env = SpacemouseIntervention(env)
 env = ObsWrapper(env)

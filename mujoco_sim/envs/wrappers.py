@@ -137,35 +137,39 @@ class ObsWrapper(gym.ObservationWrapper):
 
     def __init__(self, env):
         super().__init__(env)
-        # Flatten the state observation space
-        state_space = flatten_space(self.env.observation_space["state"])
 
         if "images" in self.env.observation_space:
             # If images are part of the observation space
             self.observation_space = gym.spaces.Dict(
-                {
-                    "state": state_space,
-                    "images": self.env.observation_space["images"],
-                }
-            )
+            {
+                "state": flatten_space(self.env.observation_space["state"]),
+                **(self.env.observation_space["images"]),
+            })
+            
             self.include_images = True
+        
         else:
             # If no image observations
             self.observation_space = gym.spaces.Dict(
                 {
-                    "state": state_space,
+                    "state": flatten_space(self.env.observation_space["state"]),
                 }
             )
             self.include_images = False
 
     def observation(self, obs):
-        # Flatten the state observation
-        obs = {
-            "state": flatten(self.env.observation_space["state"], obs["state"]),
-        }
+
         # Include images only if available
         if self.include_images:
-            obs["images"] = obs["images"]
+            # Flatten the state observation
+            obs = {
+                "state": flatten(self.env.observation_space["state"], obs["state"]),
+                **(obs["images"]),
+            }
+        else:
+            obs = {
+                "state": flatten(self.env.observation_space["state"], obs["state"]),
+            }
         return obs
 
 class Quat2EulerWrapper(gym.ObservationWrapper):

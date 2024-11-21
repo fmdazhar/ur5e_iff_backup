@@ -7,7 +7,7 @@ from mujoco_sim.utils.viz import SliderController
 from mujoco_sim.envs.wrappers import SpacemouseIntervention
 
 # Initialize the environment and controller
-env = envs.ur5ePegInHoleGymEnv(image_obs=False, action_scale=(0.1, 0.1, 1))
+env = envs.ur5ePegInHoleGymEnv()
 action_spec = env.action_space
 
 # Define indices for UR5e DOF and gripper
@@ -16,30 +16,6 @@ gripper_dof_index = env._gripper_ctrl_id
 
 env = SpacemouseIntervention(env)
 controller = env.controller
-
-# # # Set controller parameters dynamically
-# controller.set_parameters(
-#     damping_ratio=0.8,
-#     error_tolerance_pos=0.001,
-#     error_tolerance_ori=0.001,
-#     pos_gains=(50, 50, 50),
-#     ori_gains=(50, 50, 50),
-#     # max_pos_error = 300,
-#     # max_ori_error = 300,
-#     method="dynamics"
-# )
-
-# # Set controller parameters dynamically
-# controller.set_parameters(
-#     damping_ratio=1.0,
-#     error_tolerance_pos=0.001,
-#     error_tolerance_ori=0.001,
-#     pos_gains=(1, 1, 1),
-#     ori_gains=(0.5, 0.5, 0.5),
-#     # max_pos_error = 300,
-#     # max_ori_error = 300,
-#     method="dynamics"
-# )
 
 slider_controller = SliderController(controller)
 
@@ -311,9 +287,10 @@ while viewer.is_alive:
 
         viewer.render()
 
-        # Update Tkinter sliders
-        slider_controller.root.update_idletasks()
-        slider_controller.root.update()
+        if 'slider_controller' in locals() and slider_controller:
+            # Update Tkinter sliders
+            slider_controller.root.update_idletasks()
+            slider_controller.root.update()
 
         # Control timestep synchronization
         time_until_next_step = env.control_dt - (time.time() - step_start)

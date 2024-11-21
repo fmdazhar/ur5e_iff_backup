@@ -9,29 +9,30 @@ class Controller:
         model,
         data,
         site_id,
-        integration_dt,
         dof_ids: np.ndarray,
+        config: dict
     ):
+
         self.model = model
         self.data = data
         self.site_id = site_id
-        self.integration_dt = integration_dt if integration_dt is not None else model.opt.timestep
+        self.integration_dt = config.get("integration_dt", model.opt.timestep)
         self.dof_ids = dof_ids
 
-        # Default parameters
-        self.trans_damping_ratio = 0.996  # Separate damping ratio for translational control
-        self.rot_damping_ratio = 0.286  # Separate damping ratio for rotational control        
-        self.error_tolerance_pos = 0.001
-        self.error_tolerance_ori = 0.001
-        self.max_pos_error = 0.01
-        self.max_ori_error = 0.03
-        self.method = "dynamics"
-        self.inertia_compensation = False
-        self.pos_gains = (100, 100, 100)
-        self.ori_gains = tuple(gain * 1/8 for gain in self.pos_gains)   
-        self.pos_kd = None
-        self.ori_kd = None
-        self.max_angvel = 4
+        # Set parameters from the config dictionary
+        self.trans_damping_ratio = config.get("trans_damping_ratio", 0.996)
+        self.rot_damping_ratio = config.get("rot_damping_ratio", 0.286)
+        self.error_tolerance_pos = config.get("error_tolerance_pos", 0.001)
+        self.error_tolerance_ori = config.get("error_tolerance_ori", 0.001)
+        self.max_pos_error = config.get("max_pos_error", 0.01)
+        self.max_ori_error = config.get("max_ori_error", 0.03)
+        self.method = config.get("method", "dynamics")
+        self.inertia_compensation = config.get("inertia_compensation", False)
+        self.pos_gains = config.get("pos_gains", (100, 100, 100))
+        self.ori_gains = config.get("ori_gains", tuple(gain * 1/8 for gain in self.pos_gains))
+        self.pos_kd = config.get("pos_kd", None)
+        self.ori_kd = config.get("ori_kd", None)
+        self.max_angvel = config.get("max_angvel", 4)
 
         # Preallocate memory for commonly used variables
         self.quat = np.zeros(4)
@@ -100,9 +101,9 @@ class Controller:
             
         else:
             kp = np.asarray(gains) / self.integration_dt
-
             if kd_values is None:
-                kd = damping_ratio * kp * self.integration_dt
+                # kd = damping_ratio * kp * self.integration_dt
+                kd = 0
             else:
                 kd = np.asarray(kd_values)
 
@@ -218,5 +219,4 @@ class Controller:
         q_min = self.model.actuator_ctrlrange[:6, 0]
         q_max = self.model.actuator_ctrlrange[:6, 1]
         np.clip(q, q_min, q_max, out=q)
-
         return q

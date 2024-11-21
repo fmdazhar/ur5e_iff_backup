@@ -212,12 +212,6 @@
     <exclude body1="hande" body2="hande_right_finger"/>
   </contact> -->
 
-  <!-- <equality>
-    <weld name="connector_to_fingers" body1="connector" body2="hande_left_finger" solimp="0.95 0.99 0.001" solref="0.005 1" />
-    <weld name="connector_to_fingers2" body1="connector" body2="hande_right_finger" solimp="0.95 0.99 0.001" solref="0.005 1" />  
-  </equality> -->
-
-
   <equality>
     <joint joint1="hande_left_finger_joint" joint2="hande_right_finger_joint" polycoef="0 1 0 0 0" solimp="0.95 0.99 0.001"
       solref="0.005 1" />
