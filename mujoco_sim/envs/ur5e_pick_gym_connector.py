@@ -95,6 +95,11 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         self._hand_geom = self._model.geom("hande_base").id
         self._connector_head_geom = self._model.geom("connector_head").id
 
+        #preallocate memory
+        self.quat_err = np.zeros(4)
+        self.quat_conj = np.zeros(4)
+        self.ori_err = np.zeros(3)
+
         self.controller = Controller(
         model=self._model,
         data=self._data,
@@ -242,7 +247,7 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         obs = self._compute_observation()
         return obs, {}
     
-    def get_state(self):
+    def get_state(self) -> np.ndarray:
         """Return MjSimState instance for current state."""
         return np.concatenate([[self.data.time], np.copy(self.data.qpos), np.copy(self.data.qvel)], axis=0)
 
@@ -306,7 +311,7 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
 
         return obs, rew, terminated, False, {"succeed": task_complete}
 
-    def render(self):
+    def render(self) -> np.ndarray:
         rendered_frames = []
         for cam_id in self.camera_id:
             self._viewer.camera = cam_id  # Set the camera based on cam_id
@@ -377,23 +382,20 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         return obs
 
     def _compute_reward(self) -> float:
-        connector_head_pos = self._data.sensor("connector_head_pos").data
-        connector_head_ori = self._data.sensor("connector_head_quat").data
-        tcp_pos = self._data.sensor("hande/pinch_pos").data
-
-        connector_bottom_pos = self._data.sensor("connector_bottom_pos").data
-        port_bottom_pos = self._data.sensor("port_bottom_pos").data
-        port_bottom_quat = self._data.sensor("port_bottom_quat").data
+        sensor_data = self._data.sensor
+        connector_head_pos = sensor_data("connector_head_pos").data
+        connector_head_ori = sensor_data("connector_head_quat").data
+        tcp_pos = sensor_data("hande/pinch_pos").data
+        connector_bottom_pos = sensor_data("connector_bottom_pos").data
+        port_bottom_pos = sensor_data("port_bottom_pos").data
+        port_bottom_quat = sensor_data("port_bottom_quat").data
         distance = np.linalg.norm(connector_bottom_pos - port_bottom_pos)
 
         # Orientation Control
-        quat_err = np.zeros(4)
-        quat_conj = np.zeros(4)
-        ori_err = np.zeros(3)
-        mujoco.mju_negQuat(quat_conj, connector_head_ori)
-        mujoco.mju_mulQuat(quat_err, port_bottom_quat, quat_conj)
-        mujoco.mju_quat2Vel(ori_err, quat_err, 1.0)
-        distance += 0.5*np.linalg.norm(ori_err)
+        mujoco.mju_negQuat(self.quat_conj, connector_head_ori)
+        mujoco.mju_mulQuat(self.quat_err, port_bottom_quat, self.quat_conj)
+        mujoco.mju_quat2Vel(self.ori_err, self.quat_err, 1.0)
+        distance += 0.5*np.linalg.norm(self.ori_err)
 
         # Task completion
         task_complete = distance < self.reward_config["task_complete_tolerance"]

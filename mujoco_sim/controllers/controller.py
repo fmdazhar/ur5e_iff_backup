@@ -90,7 +90,7 @@ class Controller:
         if inertia_compensation is not None:
             self.inertia_compensation = inertia_compensation
 
-    def compute_gains(self, gains, kd_values, method: str, damping_ratio: float):
+    def compute_gains(self, gains, kd_values, method: str, damping_ratio: float) -> np.ndarray:
 
         if method == "dynamics":
             kp = np.asarray(gains) 
