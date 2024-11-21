@@ -8,7 +8,6 @@ import copy
 from mujoco_sim.devices.input_utils import input2action  # Relative import for input2action
 from mujoco_sim.devices.keyboard import Keyboard  # Relative import from devices.keyboard
 from mujoco_sim.devices.spacemouse import SpaceMouse  # Relative import from devices.spacemouse
-from mujoco_sim.utils.rotations import quat_2_euler, euler_2_quat
 
 sigmoid = lambda x: 1 / (1 + np.exp(-x))
 
@@ -172,25 +171,6 @@ class ObsWrapper(gym.ObservationWrapper):
             }
         return obs
 
-class Quat2EulerWrapper(gym.ObservationWrapper):
-    """
-    Convert the quaternion representation of the tcp pose to euler angles
-    """
-
-    def __init__(self, env: Env):
-        super().__init__(env)
-        # from xyz + quat to xyz + euler
-        self.observation_space["state"]["tcp_pose"] = spaces.Box(
-            -np.inf, np.inf, shape=(6,)
-        )
-
-    def observation(self, observation):
-        # convert tcp pose from quat to euler
-        tcp_pose = observation["state"]["tcp_pose"]
-        observation["state"]["tcp_pose"] = np.concatenate(
-            (tcp_pose[:3], quat_2_euler(tcp_pose[3:]))
-        )
-        return observation
 class GripperCloseEnv(gym.ActionWrapper):
     """
     Use this wrapper to task that requires the gripper to be closed
