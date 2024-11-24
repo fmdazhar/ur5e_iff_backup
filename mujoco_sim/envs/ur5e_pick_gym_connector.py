@@ -46,6 +46,7 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         self.ur5e_reset = config.UR5E_CONFIG["reset_position"]
         self.cartesian_bounds = config.UR5E_CONFIG["cartesian_bounds"]
         self.sampling_bounds = config.UR5E_CONFIG["sampling_bounds"]
+        self.xy_randomize = config.UR5E_CONFIG["xy_randomization"]
         self.randomization_bounds = config.UR5E_CONFIG["randomization_bounds"]
         self.reset_tolerance = config.UR5E_CONFIG["reset_tolerance"]
 
@@ -201,25 +202,34 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         self._model.body_pos[self._port_id][:2] = port_xy
         mujoco.mj_forward(self._model, self._data)
 
-        # Independent variations for x, y, and z axes
-        random_xyz = np.random.uniform(*self.randomization_bounds)
-        # Sample mocap position with independent variations
-        self._data.mocap_pos[0] = np.array([
+        if self.xy_randomize:
+            # Independent variations for x, y, and z axes
+            random_xyz = np.random.uniform(*self.randomization_bounds)
+            # Sample mocap position with independent variations
+            self._data.mocap_pos[0] = np.array([
             port_xy[0] + random_xyz[0],
             port_xy[1] + random_xyz[1],
             self._port_z + random_xyz[2]
-        ])
+            ])
+        else:
+            # Fixed addition for z axis only
+            self._data.mocap_pos[0] = np.array([
+            port_xy[0],
+            port_xy[1],
+            self._port_z + 0.1
+            ])
+
         quat_des = np.zeros(4)
         mujoco.mju_mat2Quat(quat_des, self.data.site_xmat[self._port_site_id])
         self._data.mocap_quat[0] = quat_des
         mujoco.mj_forward(self._model, self._data)
 
-        while True:
-            current_tcp_pos = self._data.sensor("hande/pinch_pos").data.copy()
-            distance = np.linalg.norm(self._data.mocap_pos[0] - current_tcp_pos)
-            if distance <= self.reset_tolerance:
-                break  # Goal reached
-            self.step()
+        # while True:
+        #     current_tcp_pos = self._data.sensor("hande/pinch_pos").data.copy()
+        #     distance = np.linalg.norm(self._data.mocap_pos[0] - current_tcp_pos)
+        #     if distance <= self.reset_tolerance:
+        #         break  # Goal reached
+        #     self.step()
 
         # plate_pos = self._data.geom("plate").xpos
         # plate_size = self._model.geom("plate").size
@@ -289,20 +299,13 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         self._data.ctrl[self._gripper_ctrl_id] = ng * 255
 
         for _ in range(self._n_substeps):
+
             ctrl = self.controller.control(
                 pos=self._data.mocap_pos[0].copy(),
                 ori=self._data.mocap_quat[0].copy(),
             )  
             # Set the control signal.
             self._data.ctrl[self._ur5e_ctrl_ids] = ctrl
-
-            self._data.qfrc_applied[:] = 0.0
-            jac = np.empty((3, self._model.nv))
-            subtreeid = 1
-            total_mass = self._model.body_subtreemass[subtreeid]
-            mujoco.mj_jacSubtreeCom(self._model, self._data, jac, subtreeid)
-            self._data.qfrc_applied[:] -=  self._model.opt.gravity * total_mass @ jac
-
             mujoco.mj_step(self._model, self._data)
             
         obs = self._compute_observation()
@@ -360,10 +363,10 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         # ).ravel()
         # obs["ur5e/joint_vel"] = joint_vel.astype(np.float32)
 
-        wrist_force = self._data.sensor("ur5e/wrist_force").data.astype(np.float32)
+        wrist_force = self._data.sensor("ur5e/wrist_force").data
         obs["state"]["ur5e/wrist_force"] = wrist_force.astype(np.float32)
 
-        wrist_torque = self._data.sensor("ur5e/wrist_torque").data.astype(np.float32)
+        wrist_torque = self._data.sensor("ur5e/wrist_torque").data
         obs["state"]["ur5e/wrist_torque"] = wrist_torque.astype(np.float32)
 
         if self.image_obs:

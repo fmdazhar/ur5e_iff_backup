@@ -4,7 +4,7 @@ from mujoco_sim.viewer.mujoco_viewer import MujocoViewer
 import numpy as np
 from mujoco_sim import envs
 from mujoco_sim.utils.viz import SliderController
-from mujoco_sim.envs.wrappers import SpacemouseIntervention
+from mujoco_sim.envs.wrappers import SpacemouseIntervention, ZOnlyWrapper, ObsWrapper, GripperCloseEnv
 
 # Initialize the environment and controller
 env = envs.ur5ePegInHoleGymEnv()
@@ -13,11 +13,12 @@ action_spec = env.action_space
 # Define indices for UR5e DOF and gripper
 ur5e_dof_indices = env._ur5e_dof_ids
 gripper_dof_index = env._gripper_ctrl_id
-
+env = GripperCloseEnv(env)
 env = SpacemouseIntervention(env)
+
 controller = env.controller
 
-slider_controller = SliderController(controller)
+# slider_controller = SliderController(controller)
 
 # Sample a random action within the action space
 def sample():
@@ -104,7 +105,7 @@ fig1.gridsize[1] = 5
 
 
 # Figure 2: Joint Velocity
-viewer.add_line_to_fig(line_name="port_sensor", fig_idx=2, color=[0.6, 0, 0])  # Red
+viewer.add_line_to_fig(line_name="sparse_reward", fig_idx=2, color=[0.6, 0, 0])  # Red
 
 fig2 = viewer.figs[2]
 fig2.title = "Port Signal"
@@ -214,13 +215,13 @@ while viewer.is_alive:
         # Reshape rotation_matrix to a 3x3 matrix after conversion
         rotation_matrix = rotation_matrix.reshape((3, 3))
 
-        viewer.add_marker(
-            pos=mocap_pos,
-            mat=rotation_matrix,
-            size=[0.001, 0.001, 0.5],
-            rgba=[0, 1, 1, 0.3],
-            type=mujoco.mjtGeom.mjGEOM_ARROW,
-        )
+        # viewer.add_marker(
+        #     pos=mocap_pos,
+        #     mat=rotation_matrix,
+        #     size=[0.001, 0.001, 0.5],
+        #     rgba=[0, 1, 1, 0.3],
+        #     type=mujoco.mjtGeom.mjGEOM_ARROW,
+        # )
 
         # Update graph lines for UR5e DOF
         for joint_idx in ur5e_dof_indices:
@@ -259,7 +260,7 @@ while viewer.is_alive:
 
         # Update rewards plots
         viewer.add_data_to_line(line_name="dense_reward", line_data=rew, fig_idx=1)
-        viewer.add_data_to_line(line_name="port_sensor", line_data=success, fig_idx=2)
+        viewer.add_data_to_line(line_name="sparse_reward", line_data=success, fig_idx=2)
 
         # Update Joint Velocity lines
         for joint_idx in ur5e_dof_indices:

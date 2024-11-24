@@ -1,6 +1,7 @@
 from typing import Optional, Tuple, Union
 import mujoco
 import numpy as np
+from mujoco_sim.utils.mujoco_utils import MujocoModelNames
 
 
 class Controller:
@@ -10,7 +11,7 @@ class Controller:
         data,
         site_id,
         dof_ids: np.ndarray,
-        config: dict
+        config: dict,
     ):
 
         self.model = model
@@ -18,6 +19,10 @@ class Controller:
         self.site_id = site_id
         self.integration_dt = config.get("integration_dt", model.opt.timestep)
         self.dof_ids = dof_ids
+        self.model_names = MujocoModelNames(self.model)
+        self.admittance_control = config.get("admittance_control", False)
+        self.force = np.zeros(3)
+        self.torque = np.zeros(3)
 
         # Set parameters from the config dictionary
         self.trans_damping_ratio = config.get("trans_damping_ratio", 0.996)
@@ -33,6 +38,7 @@ class Controller:
         self.pos_kd = config.get("pos_kd", None)
         self.ori_kd = config.get("ori_kd", None)
         self.max_angvel = config.get("max_angvel", 4)
+        self.gravity_compensation = config.get("gravity_compensation", True)
 
         # Preallocate memory for commonly used variables
         self.quat = np.zeros(4)
@@ -162,6 +168,27 @@ class Controller:
 
         dw = self.ori_err + w_err
 
+        if self.admittance_control:
+            # Get the orientation matrix of the force-torque (FT) sensor
+            ft_ori_mat = self.data.site_xmat[self.model.site("attachment_site").id].reshape(3, 3)
+            self.force = self.data.sensor("ur5e/wrist_force").data
+            self.torque = self.data.sensor("ur5e/wrist_torque").data
+
+            # self.force_id = self.model_names.sensor_name2id["ur5e/wrist_force"]
+            # self.torque_id = self.model_names.sensor_name2id["ur5e/wrist_torque"]
+            # self.force_adr = self.model.sensor_adr[self.force_id]
+            # self.torque_adr = self.model.sensor_adr[self.torque_id]
+            # self.force_ndim = 3
+            # self.torque_ndim = 3
+            # force = self.data.sensordata[self.force_adr : self.force_adr + self.force_ndim]
+            # torque = self.data.sensordata[self.torque_adr : self.torque_adr + self.torque_ndim]
+            # print("Force: ", force)
+            # print("Torque: ", torque)
+
+            # Transform the force and torque from the sensor frame to the world frame
+            ddx += -ft_ori_mat @ self.force
+            dw += -ft_ori_mat @ self.torque
+
         error = np.concatenate([ddx, dw], axis=0)
 
         if self.method == "dynamics":
@@ -219,4 +246,13 @@ class Controller:
         q_min = self.model.actuator_ctrlrange[:6, 0]
         q_max = self.model.actuator_ctrlrange[:6, 1]
         np.clip(q, q_min, q_max, out=q)
+
+        if self.gravity_compensation:
+            self.data.qfrc_applied[:] = 0.0
+            jac = np.empty((3, self.model.nv))
+            subtreeid = 1
+            total_mass = self.model.body_subtreemass[subtreeid]
+            mujoco.mj_jacSubtreeCom(self.model, self.data, jac, subtreeid)
+            self.data.qfrc_applied[:] -=  self.model.opt.gravity * total_mass @ jac
+
         return q

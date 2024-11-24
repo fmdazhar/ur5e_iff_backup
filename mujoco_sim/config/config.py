@@ -20,6 +20,7 @@ class PegEnvConfig():
         "reset_position": np.array([-2.3047, -2.0615, 2.6054, -2.1147, -1.5708, 0.8369]),  # Reset joint angles
         "cartesian_bounds": np.array([[0.2, -0.3, 0.0], [0.4, 0.3, 0.5]]),  # Workspace boundaries in Cartesian space
         "sampling_bounds": np.array([[0.25, -0.20], [0.35, 0.20]]),  # Sampling range for port placement
+        "xy_randomization": False,  # Randomize port placement
         "randomization_bounds": np.array([[-0.1, -0.1, 0.1], [0.1, 0.1, 0.2]]),  # Randomization bounds for positions
         "reset_tolerance": 0.002,  
     }
@@ -33,12 +34,13 @@ class PegEnvConfig():
         "max_pos_error": 0.01,  # Maximum position error
         "max_ori_error": 0.03,  # Maximum orientation error
         "method": "dynamics",  # Control method ("dynamics", "pinv", "svd", etc.)
+        "admittance_control": False,  # Whether to use admittance control
         "inertia_compensation": False,  # Whether to compensate for inertia
         "pos_gains": (100, 100, 100),  # Proportional gains for position control
-        "ori_gains": (12.5, 12.5, 12.5),  # Proportional gains for orientation control
+        # "ori_gains": (12.5, 12.5, 12.5),  # Proportional gains for orientation control
         "max_angvel": 4,  # Maximum angular velocity
         "integration_dt": 0.2,  # Integration time step for controller
-
+        "gravity_compensation": True,  # Whether to compensate for gravity  
     }
 
     # Rendering Configuration
