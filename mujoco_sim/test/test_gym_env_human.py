@@ -11,7 +11,6 @@ from mujoco_sim.envs.wrappers import SpacemouseIntervention, ZOnlyWrapper, ObsWr
 # glfw init
 glfw.init()
 
-# env = envs.ur5ePickCubeGymEnv(action_scale=(0.005,0.005, 1))
 env = envs.ur5ePegInHoleGymEnv()
 env = GripperCloseEnv(env)
 env = SpacemouseIntervention(env)
@@ -23,8 +22,8 @@ controller = env.controller
 
 
 def sample():
-    # a = np.random.uniform(action_spec.low, action_spec.high, action_spec.shape)
-    a = np.zeros(action_spec.shape, dtype=action_spec.dtype)
+    a = np.random.uniform(action_spec.low, action_spec.high, action_spec.shape)
+    # a = np.zeros(action_spec.shape, dtype=action_spec.dtype)
     return a.astype(action_spec.dtype)
 
 m = env.model

@@ -46,7 +46,11 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         self.ur5e_reset = config.UR5E_CONFIG["reset_position"]
         self.cartesian_bounds = config.UR5E_CONFIG["cartesian_bounds"]
         self.sampling_bounds = config.UR5E_CONFIG["sampling_bounds"]
-        self.xy_randomize = config.UR5E_CONFIG["xy_randomization"]
+        self.tcp_xyz_randomize = config.UR5E_CONFIG["tcp_xyz_randomize"]
+        self.port_xy_randomize = config.UR5E_CONFIG["port_xy_randomize"]
+        self.port_z_randomize = config.UR5E_CONFIG["port_z_randomize"]
+        self.port_orientation_randomize = config.UR5E_CONFIG["port_orientation_randomize"]
+        self.max_port_orient = config.UR5E_CONFIG["max_port_orient"]
         self.randomization_bounds = config.UR5E_CONFIG["randomization_bounds"]
         self.reset_tolerance = config.UR5E_CONFIG["reset_tolerance"]
 
@@ -85,7 +89,7 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         self._gripper_ctrl_id = self._model.actuator("hande_fingers_actuator").id
         self._pinch_site_id = self._model.site("pinch").id
         self._port_id = self._model.body("port_adapter").id
-        self._port_z = self._data.body(self._port_id).xipos[2]
+        self._port1_id = self._model.body("port1").id
         self._port_site = self._model.site("port_top").id
         self._port_site_id = self._model.site("port_top").id
         
@@ -108,7 +112,7 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         dof_ids=self._ur5e_dof_ids,
         config=config.CONTROLLER_CONFIG,
         )
-
+        #TODO: 1.max obs space (everything except gripper) 2.wrist force, wrist torque, tcp vel 3.
         self.observation_space = gym.spaces.Dict(
             {
                 "state": gym.spaces.Dict(
@@ -198,25 +202,91 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         mujoco.mj_forward(self._model, self._data)
 
         # Define plate bounds
-        port_xy = np.random.uniform(*self.sampling_bounds)
+        # Randomize port position if flag is True
+        # Set default port position
+        port_xy = np.array([0.3, 0.0])
+
+        # Randomize x and y position if flag is true
+        if self.port_xy_randomize:
+            port_xy = np.random.uniform(self.sampling_bounds[0][:2], self.sampling_bounds[1][:2])
         self._model.body_pos[self._port_id][:2] = port_xy
+
+        # Randomize z position if flag is true
+        if self.port_z_randomize:
+            port_z = np.random.uniform(self.sampling_bounds[0][2], self.sampling_bounds[1][2])
+            self._model.body_pos[self._port_id][2] = port_z
+
+        # Set port orientation
+        if self.port_orientation_randomize:
+            max_angle_rad = np.deg2rad(self.max_port_orient)  # Limit to ±45 degrees
+            random_angles = np.random.uniform(-max_angle_rad, max_angle_rad, size=3)
+            quat_des = np.zeros(4)
+            mujoco.mju_euler2Quat(quat_des, random_angles, "xyz")
+            self._model.body_quat[self._port_id] = quat_des
+
         mujoco.mj_forward(self._model, self._data)
 
-        if self.xy_randomize:
+        plate_pos = self._data.geom("plate").xpos
+        half_width, half_height, half_depth = self._model.geom("plate").size
+        local_vertices = np.array([
+            [ half_width,  half_height,  half_depth],
+            [ half_width,  half_height, -half_depth],
+            [ half_width, -half_height,  half_depth],
+            [ half_width, -half_height, -half_depth],
+            [-half_width,  half_height,  half_depth],
+            [-half_width,  half_height, -half_depth],
+            [-half_width, -half_height,  half_depth],
+            [-half_width, -half_height, -half_depth],
+        ])
+        # rotation_matrix = self.data.site_xmat[self._port_site_id].reshape(3,3)
+        rotation_matrix = self.data.xmat[self._port_id].reshape(3, 3)
+        rotated_vertices = local_vertices @ rotation_matrix.T + plate_pos
+        # Find the lowest z-coordinate among the rotated vertices
+        # rotated_vertices is an array of shape (8, 3)
+        x_coords = rotated_vertices[:, 0]
+        y_coords = rotated_vertices[:, 1]
+        z_coords = rotated_vertices[:, 2]
+
+        x_min = np.min(x_coords)
+        x_max = np.max(x_coords)
+        y_min = np.min(y_coords)
+        y_max = np.max(y_coords)
+        z_min = np.min(z_coords)
+        z_max = np.max(z_coords)
+
+        # Update the cartesian bounds
+        self.cartesian_bounds = (
+            np.array([x_min, y_min, z_min]),
+            np.array([x_max, y_max, z_max + 0.5])
+        )
+        if z_min < 0.0:
+            z_offset = -z_min
+        else:
+            z_offset = 0.0
+        self._model.body_pos[self._port_id][2] += z_offset
+
+        mujoco.mj_forward(self._model, self._data)
+
+        port_xyz = self.data.site_xpos[self._port_site_id]
+        if self.tcp_xyz_randomize:
+            # Generate random XYZ offsets in the local frame
+            # rotation_matrix = self.data.xmat[self._port_id].reshape(3, 3)
+            random_xyz_local = np.random.uniform(*self.randomization_bounds) 
+            random_xyz_global = random_xyz_local @ rotation_matrix.T + port_xyz
+
             # Independent variations for x, y, and z axes
-            random_xyz = np.random.uniform(*self.randomization_bounds)
             # Sample mocap position with independent variations
             self._data.mocap_pos[0] = np.array([
-            port_xy[0] + random_xyz[0],
-            port_xy[1] + random_xyz[1],
-            self._port_z + random_xyz[2]
-            ])
+            random_xyz_global[0],
+            random_xyz_global[1],
+            random_xyz_global[2] 
+            ] )
         else:
             # Fixed addition for z axis only
             self._data.mocap_pos[0] = np.array([
-            port_xy[0],
-            port_xy[1],
-            self._port_z + 0.1
+            port_xyz[0],
+            port_xyz[1],
+            port_xyz[2] + 0.1
             ])
 
         quat_des = np.zeros(4)
@@ -277,7 +347,10 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
             info: dict[str, Any]
         """
         x, y, z, qx, qy, qz, grasp = action
-
+        #TODO: vectorized env. 1.for cpu 2. for gpu using using mjx
+        #TODO: Add 3 action space 1.delta x,y,z 2. delta x,y,z, delta qz 3. all deltas
+        #TODO: add delta instead of q
+        #TODO: visualize action space
         # Set the position.
         pos = self._data.mocap_pos[0].copy()
         dpos = np.asarray([x, y, z]) * self._action_scale[0]
@@ -309,6 +382,8 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
             mujoco.mj_step(self._model, self._data)
             
         obs = self._compute_observation()
+        # print(self._data.qpos[self._ur5e_dof_ids])
+
         rew, task_complete = self._compute_reward()
         terminated = self.time_limit_exceeded() or task_complete or self.terminate
 
@@ -408,6 +483,8 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         
         # Dense rewards with shaping
         dense_weights = self.reward_config["dense_reward_weights"]
+
+        #TODO: change sparse reward to simple z distance 2. dense reward without tanh
 
         reward_components = {
         "box_target": lambda: 1 - np.tanh(10 * distance),
