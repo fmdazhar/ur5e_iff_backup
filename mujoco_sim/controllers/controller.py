@@ -1,7 +1,7 @@
 from typing import Optional, Tuple, Union
 import mujoco
 import numpy as np
-from mujoco_sim.utils.mujoco_utils import MujocoModelNames
+# from mujoco_sim.utils.mujoco_utils import MujocoModelNames
 
 
 class Controller:
@@ -19,7 +19,7 @@ class Controller:
         self.site_id = site_id
         self.integration_dt = config.get("integration_dt", model.opt.timestep)
         self.dof_ids = dof_ids
-        self.model_names = MujocoModelNames(self.model)
+        # self.model_names = MujocoModelNames(self.model)
         self.force = np.zeros(3)
         self.torque = np.zeros(3)
 
