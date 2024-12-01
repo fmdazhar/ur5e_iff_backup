@@ -5,25 +5,27 @@ import numpy as np
 import glfw
 
 from mujoco_sim import envs
-from mujoco_sim.envs.wrappers import SpacemouseIntervention, ZOnlyWrapper, ObsWrapper, GripperCloseEnv
+from mujoco_sim.envs.wrappers import SpacemouseIntervention, CustomObsWrapper, ObsWrapper, GripperCloseEnv, XYZGripperCloseEnv, XYZQzGripperCloseEnv
 
 
 # glfw init
 glfw.init()
 
 env = envs.ur5ePegInHoleGymEnv()
-env = GripperCloseEnv(env)
+env = XYZQzGripperCloseEnv(env)
 env = SpacemouseIntervention(env)
+env = CustomObsWrapper(env)
 env = ObsWrapper(env)
-env = ZOnlyWrapper(env)
 
 action_spec = env.action_space
+print(f"Action space: {action_spec}")
 controller = env.controller
 
 
 def sample():
-    a = np.random.uniform(action_spec.low, action_spec.high, action_spec.shape)
-    # a = np.zeros(action_spec.shape, dtype=action_spec.dtype)
+    # a = np.random.uniform(action_spec.low, action_spec.high, action_spec.shape)
+    a = np.zeros(action_spec.shape, dtype=action_spec.dtype)
+    print(f"Sampled action: {a}")
     return a.astype(action_spec.dtype)
 
 m = env.model

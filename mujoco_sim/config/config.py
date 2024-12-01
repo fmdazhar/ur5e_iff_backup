@@ -29,7 +29,7 @@ class PegEnvConfig():
         "tcp_xyz_randomize": True,  # Randomize port placement
         # "randomization_bounds": np.array([[-0.02, -0.02, 0.0], [0.02, 0.02, 0.2]]),  # Randomization bounds for positions
         "randomization_bounds": np.array([[-0.05, -0.05, 0.05], [0.05, 0.05, 0.06]]),  # Randomization bounds for positions
-        "reset_tolerance": 0.002,  
+        "reset_tolerance": 0.002,
     }
 
     # Controller Configuration

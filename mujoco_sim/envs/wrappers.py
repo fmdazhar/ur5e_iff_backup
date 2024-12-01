@@ -1,132 +1,50 @@
 import time
-from gym import Env, spaces
 import gym
 import numpy as np
 from gym.spaces import Box
-import copy
-# from mujoco_sim.spacemouse.spacemouse_expert import SpaceMouseExpert
 from mujoco_sim.devices.input_utils import input2action  # Relative import for input2action
 from mujoco_sim.devices.keyboard import Keyboard  # Relative import from devices.keyboard
 from mujoco_sim.devices.spacemouse import SpaceMouse  # Relative import from devices.spacemouse
 
-sigmoid = lambda x: 1 / (1 + np.exp(-x))
 
-
-class FWBWFrontCameraBinaryRewardClassifierWrapper(gym.Wrapper):
+class CustomObsWrapper(gym.ObservationWrapper):
     """
-    This wrapper uses the front camera images to compute the reward,
-    which is not part of the RL policy's observation space. This is used for the
-    forward backward reset-free bin picking task, where there are two classifiers,
-    one for classifying success + failure for the forward and one for the
-    backward task. Here we also use these two classifiers to decide which
-    task to transition into next at the end of the episode to maximize the
-    learning efficiency.
+    Removal of unwanted coordinates before flattening.
     """
 
-    def __init__(self, env: Env, fw_reward_classifier_func, bw_reward_classifier_func):
-        # check if env.task_id exists
-        assert hasattr(env, "task_id"), "fwbw env must have task_idx attribute"
-        assert hasattr(env, "task_graph"), "fwbw env must have a task_graph method"
-
+    def __init__(self, env):
         super().__init__(env)
-        self.reward_classifier_funcs = [
-            fw_reward_classifier_func,
-            bw_reward_classifier_func,
+
+        # Specify the keys you want to keep in the observation
+        self.keys_to_keep = [
+            "ur5e/tcp_pose",
+            "ur5e/tcp_vel",
+            # "ur5e/gripper_pos",
+            "ur5e/joint_pos",
+            "ur5e/joint_vel",
+            "ur5e/wrist_force",
+            "ur5e/wrist_torque",
+            "connector_pose"
         ]
 
-    def task_graph(self, obs):
-        """
-        predict the next task to transition into based on the current observation
-        if the current task is not successful, stay in the current task
-        else transition to the next task
-        """
-        success = self.compute_reward(obs)
-        if success:
-            return (self.task_id + 1) % 2
-        return self.task_id
+        # Modify the observation space to include only the desired keys
+        original_state_space = self.observation_space["state"]
+        modified_state_space = gym.spaces.Dict({
+            key: original_state_space.spaces[key] for key in self.keys_to_keep
+        })
 
-    def compute_reward(self, obs):
-        reward = self.reward_classifier_funcs[self.task_id](obs).item()
-        return (sigmoid(reward) >= 0.5) * 1
-
-    def step(self, action):
-        obs, rew, done, truncated, info = self.env.step(action)
-        success = self.compute_reward(self.env.get_front_cam_obs())
-        rew += success
-        done = done or success
-        return obs, rew, done, truncated, info
-
-
-class FrontCameraBinaryRewardClassifierWrapper(gym.Wrapper):
-    """
-    This wrapper uses the front camera images to compute the reward,
-    which is not part of the observation space
-    """
-
-    def __init__(self, env: Env, reward_classifier_func):
-        super().__init__(env)
-        self.reward_classifier_func = reward_classifier_func
-
-    def compute_reward(self, obs):
-        if self.reward_classifier_func is not None:
-            logit = self.reward_classifier_func(obs).item()
-            return (sigmoid(logit) >= 0.5) * 1
-        return 0
-
-    def step(self, action):
-        obs, rew, done, truncated, info = self.env.step(action)
-        success = self.compute_reward(self.env.get_front_cam_obs())
-        rew += success
-        done = done or success
-        return obs, rew, done, truncated, info
-
-
-class BinaryRewardClassifierWrapper(gym.Wrapper):
-    """
-    Compute reward with custom binary reward classifier fn
-    """
-
-    def __init__(self, env: Env, reward_classifier_func):
-        super().__init__(env)
-        self.reward_classifier_func = reward_classifier_func
-
-    def compute_reward(self, obs):
-        if self.reward_classifier_func is not None:
-            logit = self.reward_classifier_func(obs).item()
-            return (sigmoid(logit) >= 0.5) * 1
-        return 0
-
-    def step(self, action):
-        obs, rew, done, truncated, info = self.env.step(action)
-        success = self.compute_reward(obs)
-        rew += success
-        done = done or success
-        return obs, rew, done, truncated, info
-
-
-class ZOnlyWrapper(gym.ObservationWrapper):
-    """
-    Removal of X and Y coordinates
-    """
-
-    def __init__(self, env: Env):
-        super().__init__(env)
-        self.observation_space["state"] = spaces.Box(-np.inf, np.inf, shape=(14,))
+        self.observation_space = gym.spaces.Dict({"state": modified_state_space})
 
     def observation(self, observation):
-        observation["state"] = np.concatenate(
-            (
-                observation["state"][:4],
-                np.array(observation["state"][6])[..., None],
-                observation["state"][10:],
-            ),
-            axis=-1,
-        )
+        # Keep only the desired keys in the observation
+        observation["state"] = {
+            key: observation["state"][key] for key in self.keys_to_keep
+        }
+        # print(observation["state"])
         return observation
 
 import gym
 from gym.spaces import flatten_space, flatten
-
 
 class ObsWrapper(gym.ObservationWrapper):
     """
@@ -170,6 +88,7 @@ class ObsWrapper(gym.ObservationWrapper):
                 "state": flatten(self.env.observation_space["state"], obs["state"]),
             }
         return obs
+    
 
 class GripperCloseEnv(gym.ActionWrapper):
     """
@@ -195,6 +114,60 @@ class GripperCloseEnv(gym.ActionWrapper):
             info["intervene_action"] = info["intervene_action"][:6]
         return obs, rew, done, truncated, info
 
+class XYZGripperCloseEnv(gym.ActionWrapper):
+    """
+    Wrapper to reduce action space to x, y, z deltas.
+    """
+    def __init__(self, env):
+        super().__init__(env)
+        ub = self.env.action_space
+        assert ub.shape == (7,)
+        self.action_space = Box(ub.low[:3], ub.high[:3])
+
+    def action(self, action: np.ndarray) -> np.ndarray:
+        new_action = np.zeros((7,), dtype=np.float32)
+        new_action[:7] = action.copy()
+        new_action[3:6] = 0  # Set the gripper to closed
+        new_action[6] = 1  # Set the gripper to closed
+        return new_action
+
+    def step(self, action):
+        new_action = self.action(action)
+        obs, rew, done, truncated, info = self.env.step(new_action)
+        if "intervene_action" in info:
+            info["intervene_action"] = info["intervene_action"][:6]
+        return obs, rew, done, truncated, info
+    
+class XYZQzGripperCloseEnv(gym.ActionWrapper):
+    """
+    Wrapper to reduce action space to x, y, z deltas.
+    """
+    def __init__(self, env):
+        super().__init__(env)
+        ub = self.env.action_space
+        assert ub.shape == (7,)
+        # Set the new action space to x, y, z translations and z-axis rotation
+        low = np.concatenate([ub.low[:3], ub.low[5:6]], axis=0)
+        high = np.concatenate([ub.high[:3], ub.high[5:6]], axis=0)
+        self.action_space = Box(
+            low=low,
+            high=high,
+            dtype=np.float32
+        )
+
+    def action(self, action: np.ndarray) -> np.ndarray:
+        new_action = np.zeros((7,), dtype=np.float32)
+        new_action[:7] = action.copy()
+        new_action[3:5] = 0  # Set the gripper to closed
+        new_action[6] = 1  # Set the gripper to closed
+        return new_action
+
+    def step(self, action):
+        new_action = self.action(action)
+        obs, rew, done, truncated, info = self.env.step(new_action)
+        if "intervene_action" in info:
+            info["intervene_action"] = info["intervene_action"][:6]
+        return obs, rew, done, truncated, info
 
 class SpacemouseIntervention(gym.ActionWrapper):
     def __init__(self, env):
