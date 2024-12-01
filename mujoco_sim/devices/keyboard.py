@@ -89,12 +89,17 @@ class Keyboard(Device):
             self.raw_drotation - self.last_drotation
         )  # create local variable to return, then reset internal drotation
         self.last_drotation = np.array(self.raw_drotation)
+
+        # Capture the reset state and then reset it to 0
+        reset_state = self._reset_state
+        self._reset_state = 0  # Reset the reset state after reading it
+        
         return dict(
             dpos=dpos,
             rotation=self.rotation,
             raw_drotation=raw_drotation,
             grasp=int(self.grasp),
-            reset=self._reset_state,
+            reset=reset_state,
         )
 
     def on_press(self, key):
@@ -163,7 +168,6 @@ class Keyboard(Device):
             # user-commanded reset
             elif key.char == "q":
                 self._reset_state = 1
-                self._enabled = False
                 self._reset_internal_state()
 
         except AttributeError as e:

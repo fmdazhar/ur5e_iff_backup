@@ -8,8 +8,7 @@ class PegEnvConfig():
         "action_scale": np.array([0.005,0.005, 1]),  # Scaling factors for position, orientation, and gripper control
         "control_dt": 0.02,  # Time step for controller updates
         "physics_dt": 0.002,  # Time step for physics simulation
-        "time_limit": 10.0,  # Time limit for each episode
-        "render_mode": "rgb_array",  # Rendering mode ("human" or "rgb_array")
+        "time_limit": 20.0,  # Time limit for each episode
         "seed": 0,  # Random seed
     }
 
@@ -17,7 +16,7 @@ class PegEnvConfig():
     UR5E_CONFIG = {
         "home_position": np.array([-1.5708, -1.5708, 1.5708, -1.5708, -1.5708, 0]),  # Home joint angles
         "reset_position": np.array([-1.43822003, -1.95706484,  1.53889027, -1.15262176, -1.57079633,  1.70337263]),  # Reset joint angles
-        "cartesian_bounds": np.array([[0.1, -0.3, 0.0], [0.4, 0.3, 0.5]]),  # Workspace boundaries in Cartesian space
+        "default_cartesian_bounds": np.array([[0.1, -0.3, 0.0], [0.4, 0.3, 0.5]]),  # Workspace boundaries in Cartesian space
         "restrict_cartesian_bounds": True,  # Whether to restrict the end effector to the Cartesian bounds
         "default_port_pos": np.array([0.4, 0.0, 0.0]),  # Default port position
         "port_sampling_bounds": np.array([[0.395, -0.05, 0], [0.405, 0.05, 0.1]]),  # Sampling range for port placement
@@ -27,7 +26,6 @@ class PegEnvConfig():
         "port_orientation_randomize": True,  # Randomize port placement
         "max_port_orient": 30,  # Maximum orientation deviation for port placement
         "tcp_xyz_randomize": True,  # Randomize port placement
-        # "randomization_bounds": np.array([[-0.02, -0.02, 0.0], [0.02, 0.02, 0.2]]),  # Randomization bounds for positions
         "randomization_bounds": np.array([[-0.025, -0.025, 0.05], [0.025, 0.025, 0.06]]),  # Randomization bounds for positions
         "reset_tolerance": 0.002,
     }

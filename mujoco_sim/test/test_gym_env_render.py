@@ -6,11 +6,16 @@ import mujoco.viewer
 import numpy as np
 
 import mujoco_sim
+from mujoco_sim.envs.wrappers import SpacemouseIntervention, CustomObsWrapper, ObsWrapper, GripperCloseEnv, XYZGripperCloseEnv, XYZQzGripperCloseEnv
 
-env = gym.make("ur5ePickCubeVision-v0", render_mode="human", image_obs=True)
+
+env = gym.make("ur5ePegInHoleGymEnv-v0", render_mode="human")
+env = XYZQzGripperCloseEnv(env)
+env = SpacemouseIntervention(env)
+
+
 action_spec = env.action_space
-
-
+print(f"Action space: {action_spec}")
 
 def sample():
     # a = np.random.uniform(action_spec.low, action_spec.high, action_spec.shape)
@@ -20,17 +25,10 @@ def sample():
 
 
 obs, info = env.reset()
-frames = []
 
-for i in range(200):
+for i in range(2000):
     a = sample()
     obs, rew, done, truncated, info = env.step(a)
-    # images = obs["images"]
-    # frames.append(np.concatenate((images["front"], images["wrist"]), axis=0))
 
     if done:
         obs, info = env.reset()
-
-# import imageio
-
-# imageio.mimsave("franka_lift_cube_render_test.mp4", frames, fps=20)

@@ -14,8 +14,8 @@ glfw.init()
 env = envs.ur5ePegInHoleGymEnv()
 env = XYZQzGripperCloseEnv(env)
 env = SpacemouseIntervention(env)
-env = CustomObsWrapper(env)
-env = ObsWrapper(env)
+# env = CustomObsWrapper(env)
+# env = ObsWrapper(env)
 
 action_spec = env.action_space
 print(f"Action space: {action_spec}")
@@ -32,8 +32,8 @@ m = env.model
 d = env.data
 
 reset = False
-# KEY_SPACE = 32
-KEY_SPACE = 92
+# KEY_SPACE = 32 # the key code for key ´space´
+KEY_SPACE = 92 # the key code for key ´#´
 
 action = sample()  # Generate an initial action sample
 last_sample_time = time.time()  # Track the last sample time

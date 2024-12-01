@@ -50,7 +50,7 @@ def input2action(device):
 
     # If we're resetting, immediately return None
     if reset:
-        return None, None
+        return None
 
     # First process the raw drotation
     drotation = raw_drotation[[1, 0, 2]]

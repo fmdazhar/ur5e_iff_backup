@@ -175,6 +175,10 @@ class SpacemouseIntervention(gym.ActionWrapper):
         """
         action = input2action(self.expert)
 
+        if action is None:
+            # Handle reset signal
+            return None, False
+
         if np.linalg.norm(action) > 0.001:
             self.last_intervene = time.time()
             
@@ -186,9 +190,13 @@ class SpacemouseIntervention(gym.ActionWrapper):
     def step(self, action):
 
         new_action, replaced = self.action(action)
-
-        obs, rew, done, truncated, info = self.env.step(new_action)
-        if replaced:
-            info["intervene_action"] = new_action
-
-        return obs, rew, done, truncated, info
+        if new_action is None:
+            # Reset the environment
+            obs, info = self.env.reset()
+            return obs, 0.0, False, False, info 
+        
+        else:
+            obs, rew, done, truncated, info = self.env.step(new_action)
+            if replaced:
+                info["intervene_action"] = new_action
+            return obs, rew, done, truncated, info

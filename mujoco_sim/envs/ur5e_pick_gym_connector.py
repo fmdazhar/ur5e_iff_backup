@@ -16,7 +16,7 @@ _XML_PATH = _HERE / "xmls" / "ur5e_arena.xml"
 
 class ur5ePegInHoleGymEnv(MujocoGymEnv):
     """UR5e peg-in-hole environment in Mujoco."""
-    def __init__(self):
+    def __init__(self, render_mode: Literal["rgb_array", "human"] = "rgb_array",):
         config = PegEnvConfig()
 
         # Rendering configuration
@@ -38,12 +38,12 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         )
 
         self._action_scale = config.ENV_CONFIG["action_scale"]
-        self.render_mode = config.ENV_CONFIG["render_mode"]
+        self.render_mode = render_mode
 
         # UR5e-specific configuration
         self.ur5e_home = config.UR5E_CONFIG["home_position"]
         self.ur5e_reset = config.UR5E_CONFIG["reset_position"]
-        self.cartesian_bounds = config.UR5E_CONFIG["cartesian_bounds"]
+        self.cartesian_bounds = config.UR5E_CONFIG["default_cartesian_bounds"]
         self.restrict_cartesian_bounds = config.UR5E_CONFIG["restrict_cartesian_bounds"]
         self.default_port_pos = config.UR5E_CONFIG["default_port_pos"]
         self.port_sampling_bounds = config.UR5E_CONFIG["port_sampling_bounds"]
@@ -86,6 +86,7 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
             self._model.actuator("wrist_2").id,           # Actuator for Joint 5
             self._model.actuator("wrist_3").id            # Actuator for Joint 6
         ])
+        
         self._gripper_ctrl_id = self._model.actuator("hande_fingers_actuator").id
         self._pinch_site_id = self._model.site("pinch").id
         self._port_id = self._model.body("port_adapter").id
