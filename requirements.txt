@@ -5,3 +5,5 @@ gymnasium
 dm-robotics-transformations
 imageio[ffmpeg]
 lxml
+pynput
+hid

@@ -12,10 +12,15 @@ from mujoco_sim.envs.wrappers import SpacemouseIntervention, CustomObsWrapper, O
 env = gym.make("ur5ePegInHoleGymEnv-v0", render_mode="human")
 env = XYZQzGripperCloseEnv(env)
 env = SpacemouseIntervention(env)
+env = CustomObsWrapper(env)
+env = gym.wrappers.FlattenObservation(env)
 
 
 action_spec = env.action_space
 print(f"Action space: {action_spec}")
+
+observation_spec = env.observation_space
+print(f"Observation space: {observation_spec}")
 
 def sample():
     # a = np.random.uniform(action_spec.low, action_spec.high, action_spec.shape)

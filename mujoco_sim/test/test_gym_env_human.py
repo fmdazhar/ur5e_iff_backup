@@ -3,6 +3,7 @@ import mujoco
 import mujoco.viewer
 import numpy as np
 import glfw
+import gym
 
 from mujoco_sim import envs
 from mujoco_sim.envs.wrappers import SpacemouseIntervention, CustomObsWrapper, ObsWrapper, GripperCloseEnv, XYZGripperCloseEnv, XYZQzGripperCloseEnv
@@ -12,13 +13,23 @@ from mujoco_sim.envs.wrappers import SpacemouseIntervention, CustomObsWrapper, O
 glfw.init()
 
 env = envs.ur5ePegInHoleGymEnv()
+
+# env = XYZGripperCloseEnv(env)
 env = XYZQzGripperCloseEnv(env)
+# env = GripperCloseEnv(env)
+
 env = SpacemouseIntervention(env)
-# env = CustomObsWrapper(env)
+env = CustomObsWrapper(env)
+
+env = gym.wrappers.FlattenObservation(env)
 # env = ObsWrapper(env)
 
 action_spec = env.action_space
 print(f"Action space: {action_spec}")
+
+observation_spec = env.observation_space
+print(f"Observation space: {observation_spec}")
+
 controller = env.controller
 
 

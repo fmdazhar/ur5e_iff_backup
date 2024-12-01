@@ -20,11 +20,11 @@ class CustomObsWrapper(gym.ObservationWrapper):
             "ur5e/tcp_pose",
             "ur5e/tcp_vel",
             # "ur5e/gripper_pos",
-            "ur5e/joint_pos",
-            "ur5e/joint_vel",
+            # "ur5e/joint_pos",
+            # "ur5e/joint_vel",
             "ur5e/wrist_force",
             "ur5e/wrist_torque",
-            "connector_pose"
+            # "connector_pose"
         ]
 
         # Modify the observation space to include only the desired keys
@@ -82,8 +82,15 @@ class GripperCloseEnv(gym.ActionWrapper):
 
     def action(self, action: np.ndarray) -> np.ndarray:
         new_action = np.zeros((7,), dtype=np.float32)
-        new_action[:7] = action.copy()
-        new_action[6] = 1  # Set the gripper to closed
+        if action.shape[0] == 6:
+            # Policy action without gripper value
+            new_action[:6] = action.copy()
+        elif action.shape[0] == 7:
+            # Action includes gripper value (e.g., from SpacemouseIntervention)
+            new_action = action.copy()
+        else:
+            raise ValueError(f"Unexpected action shape: {action.shape}")
+        new_action[6] = 1  # Ensure the gripper is closed
         return new_action
 
     def step(self, action):
@@ -105,9 +112,17 @@ class XYZGripperCloseEnv(gym.ActionWrapper):
 
     def action(self, action: np.ndarray) -> np.ndarray:
         new_action = np.zeros((7,), dtype=np.float32)
-        new_action[:7] = action.copy()
-        new_action[3:6] = 0  # Set the gripper to closed
-        new_action[6] = 1  # Set the gripper to closed
+        if action.shape[0] == 3:
+            # Policy action with x, y, z translations
+            new_action[:3] = action.copy()
+        elif action.shape[0] == 7:
+            # Full action provided (from SpacemouseIntervention)
+            new_action = action.copy()
+        else:
+            raise ValueError(f"Unexpected action shape: {action.shape}")
+        # Zero out rotations
+        new_action[3:6] = 0
+        new_action[6] = 1  # Ensure the gripper is closed
         return new_action
 
     def step(self, action):
@@ -136,11 +151,19 @@ class XYZQzGripperCloseEnv(gym.ActionWrapper):
 
     def action(self, action: np.ndarray) -> np.ndarray:
         new_action = np.zeros((7,), dtype=np.float32)
-        new_action[:7] = action.copy()
-        new_action[3:5] = 0  # Set the gripper to closed
-        new_action[6] = 1  # Set the gripper to closed
+        if action.shape[0] == 4:
+            # Map the reduced action back to the full action space
+            new_action[:3] = action[:3]      # x, y, z translations
+            new_action[5] = action[3]        # z-axis rotation
+        elif action.shape[0] == 7:
+            # Full action provided (from SpacemouseIntervention)
+            new_action = action.copy()
+        else:
+            raise ValueError(f"Unexpected action shape: {action.shape}")
+        new_action[3:5] = 0    # Set the gripper to closed
+        new_action[6] = 1      # Set the gripper to closed
         return new_action
-
+    
     def step(self, action):
         new_action = self.action(action)
         obs, rew, done, truncated, info = self.env.step(new_action)
