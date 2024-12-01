@@ -19,15 +19,16 @@ class PegEnvConfig():
         "reset_position": np.array([-1.43822003, -1.95706484,  1.53889027, -1.15262176, -1.57079633,  1.70337263]),  # Reset joint angles
         "cartesian_bounds": np.array([[0.1, -0.3, 0.0], [0.4, 0.3, 0.5]]),  # Workspace boundaries in Cartesian space
         "restrict_cartesian_bounds": True,  # Whether to restrict the end effector to the Cartesian bounds
-        "sampling_bounds": np.array([[0.35, -0.15, 0], [0.40, 0.15, 0.1]]),  # Sampling range for port placement
+        "default_port_pos": np.array([0.4, 0.0, 0.0]),  # Default port position
+        "port_sampling_bounds": np.array([[0.395, -0.05, 0], [0.405, 0.05, 0.1]]),  # Sampling range for port placement
         #TODO: 1.no port randomization 2. randomize xy 3.randomize all 6 dof(limited)
         "port_xy_randomize": True,  # Randomize port placement
-        "port_z_randomize": True,  # Randomize port placement
-        "port_orientation_randomize": False,  # Randomize port placement
+        "port_z_randomize": False,  # Randomize port placement
+        "port_orientation_randomize": True,  # Randomize port placement
         "max_port_orient": 30,  # Maximum orientation deviation for port placement
-        "tcp_xyz_randomize": False,  # Randomize port placement
+        "tcp_xyz_randomize": True,  # Randomize port placement
         # "randomization_bounds": np.array([[-0.02, -0.02, 0.0], [0.02, 0.02, 0.2]]),  # Randomization bounds for positions
-        "randomization_bounds": np.array([[-0.05, -0.05, 0.05], [0.05, 0.05, 0.06]]),  # Randomization bounds for positions
+        "randomization_bounds": np.array([[-0.025, -0.025, 0.05], [0.025, 0.025, 0.06]]),  # Randomization bounds for positions
         "reset_tolerance": 0.002,
     }
 

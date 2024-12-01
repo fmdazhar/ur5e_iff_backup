@@ -45,7 +45,8 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         self.ur5e_reset = config.UR5E_CONFIG["reset_position"]
         self.cartesian_bounds = config.UR5E_CONFIG["cartesian_bounds"]
         self.restrict_cartesian_bounds = config.UR5E_CONFIG["restrict_cartesian_bounds"]
-        self.sampling_bounds = config.UR5E_CONFIG["sampling_bounds"]
+        self.default_port_pos = config.UR5E_CONFIG["default_port_pos"]
+        self.port_sampling_bounds = config.UR5E_CONFIG["port_sampling_bounds"]
         self.tcp_xyz_randomize = config.UR5E_CONFIG["tcp_xyz_randomize"]
         self.port_xy_randomize = config.UR5E_CONFIG["port_xy_randomize"]
         self.port_z_randomize = config.UR5E_CONFIG["port_z_randomize"]
@@ -105,7 +106,6 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         lower_bounds, upper_bounds = self.cartesian_bounds
         center = (upper_bounds + lower_bounds) / 2.0
         size = (upper_bounds - lower_bounds) / 2.0
-
         self._model.geom_size[self._cartesian_bounds_geom_id] = size
         self._model.geom_pos[self._cartesian_bounds_geom_id] = center
 
@@ -174,17 +174,18 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         # Define plate bounds
         # Randomize port position if flag is True
         # Set default port position
-        port_xy = np.array([0.3, 0.0])
+        port_xy = self.default_port_pos[:2]
+        port_z = self.default_port_pos[2]
 
         # Randomize x and y position if flag is true
         if self.port_xy_randomize:
-            port_xy = np.random.uniform(self.sampling_bounds[0][:2], self.sampling_bounds[1][:2])
+            port_xy = np.random.uniform(self.port_sampling_bounds[0][:2], self.port_sampling_bounds[1][:2])
         self._model.body_pos[self._port_id][:2] = port_xy
 
         # Randomize z position if flag is true
         if self.port_z_randomize:
-            port_z = np.random.uniform(self.sampling_bounds[0][2], self.sampling_bounds[1][2])
-            self._model.body_pos[self._port_id][2] = port_z
+            port_z = np.random.uniform(self.port_sampling_bounds[0][2], self.port_sampling_bounds[1][2])
+        self._model.body_pos[self._port_id][2] = port_z
 
         # Set port orientation
         if self.port_orientation_randomize:
@@ -212,19 +213,12 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         rotation_matrix = self.data.xmat[self._port_id].reshape(3, 3)
         rotated_vertices = local_vertices @ rotation_matrix.T + plate_pos
         # Find the lowest z-coordinate among the rotated vertices
-        x_coords = rotated_vertices[:, 0]
-        y_coords = rotated_vertices[:, 1]
         z_coords = rotated_vertices[:, 2]
-
-        # x_min = np.min(x_coords)
-        # x_max = np.max(x_coords)
-        # y_min = np.min(y_coords)
-        # y_max = np.max(y_coords)
         z_min = np.min(z_coords)
-        z_max = np.max(z_coords)
         
         if z_min < 0.0:
             z_offset = -z_min
+            print(f"Adjusting port height by {z_offset} m.")
         else:
             z_offset = 0.0
 
@@ -232,7 +226,6 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         mujoco.mj_forward(self._model, self._data)
 
         # Update the geom size and position
-        self._cartesian_bounds_geom_id = self._model.geom("cartesian_bounds").id
         if self.restrict_cartesian_bounds:
             # Update the cartesian bounds
             self._model.geom_size[self._cartesian_bounds_geom_id] = self._model.geom("plate").size * np.array([0.5, 0.6, 1]) + np.array([0.008, 0, 0.075])
@@ -333,9 +326,9 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         # Set the position.
         pos = self._data.mocap_pos[0].copy()
         dpos = np.asarray([delta_x, delta_y, delta_z]) * self._action_scale[0]
+        # Transform to OBB's local frame
         cartesian_pos = self._data.geom("cartesian_bounds").xpos
         cartesian_half_extents = self._model.geom("cartesian_bounds").size 
-        # Transform to OBB's local frame
         obb_rotation = self.data.xmat[self._port_id].reshape(3, 3)
         local_pos = (pos + dpos - cartesian_pos) @ obb_rotation.T
         clipped_local_pos = np.clip(local_pos, -cartesian_half_extents, cartesian_half_extents)
