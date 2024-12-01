@@ -4,7 +4,7 @@ from mujoco_sim.viewer.mujoco_viewer import MujocoViewer
 import numpy as np
 from mujoco_sim import envs
 from mujoco_sim.utils.viz import SliderController
-from mujoco_sim.envs.wrappers import SpacemouseIntervention, ZOnlyWrapper, ObsWrapper, GripperCloseEnv
+from mujoco_sim.envs.wrappers import SpacemouseIntervention, CustomObsWrapper, ObsWrapper, GripperCloseEnv, XYZGripperCloseEnv, XYZQzGripperCloseEnv
 
 # Initialize the environment and controller
 env = envs.ur5ePegInHoleGymEnv()

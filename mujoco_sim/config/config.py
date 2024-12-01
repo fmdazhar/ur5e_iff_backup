@@ -23,9 +23,9 @@ class PegEnvConfig():
         #TODO: 1.no port randomization 2. randomize xy 3.randomize all 6 dof(limited)
         "port_xy_randomize": True,  # Randomize port placement
         "port_z_randomize": True,  # Randomize port placement
-        "port_orientation_randomize": True,  # Randomize port placement
+        "port_orientation_randomize": False,  # Randomize port placement
         "max_port_orient": 30,  # Maximum orientation deviation for port placement
-        "tcp_xyz_randomize": True,  # Randomize port placement
+        "tcp_xyz_randomize": False,  # Randomize port placement
         # "randomization_bounds": np.array([[-0.02, -0.02, 0.0], [0.02, 0.02, 0.2]]),  # Randomization bounds for positions
         "randomization_bounds": np.array([[-0.05, -0.05, 0.05], [0.05, 0.05, 0.06]]),  # Randomization bounds for positions
         "reset_tolerance": 0.002,
