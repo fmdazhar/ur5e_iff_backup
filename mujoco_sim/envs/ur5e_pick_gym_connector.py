@@ -45,6 +45,7 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         self.ur5e_home = config.UR5E_CONFIG["home_position"]
         self.ur5e_reset = config.UR5E_CONFIG["reset_position"]
         self.cartesian_bounds = config.UR5E_CONFIG["cartesian_bounds"]
+        self.restrict_cartesian_bounds = config.UR5E_CONFIG["restrict_cartesian_bounds"]
         self.sampling_bounds = config.UR5E_CONFIG["sampling_bounds"]
         self.tcp_xyz_randomize = config.UR5E_CONFIG["tcp_xyz_randomize"]
         self.port_xy_randomize = config.UR5E_CONFIG["port_xy_randomize"]
@@ -237,7 +238,7 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
             [-half_width,  half_height, -half_depth],
             [-half_width, -half_height,  half_depth],
             [-half_width, -half_height, -half_depth],
-        ])
+        ]) 
         # rotation_matrix = self.data.site_xmat[self._port_site_id].reshape(3,3)
         rotation_matrix = self.data.xmat[self._port_id].reshape(3, 3)
         rotated_vertices = local_vertices @ rotation_matrix.T + plate_pos
@@ -253,19 +254,28 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         y_max = np.max(y_coords)
         z_min = np.min(z_coords)
         z_max = np.max(z_coords)
-
-        # Update the cartesian bounds
-        self.cartesian_bounds = (
-            np.array([x_min, y_min, z_min]),
-            np.array([x_max, y_max, z_max + 0.5])
-        )
+        
         if z_min < 0.0:
             z_offset = -z_min
         else:
             z_offset = 0.0
-        self._model.body_pos[self._port_id][2] += z_offset
 
+        self._model.body_pos[self._port_id][2] += z_offset
         mujoco.mj_forward(self._model, self._data)
+
+        if self.restrict_cartesian_bounds:
+            # Update the cartesian bounds
+            self.cartesian_bounds = (
+                np.array([x_min, y_min, z_min + z_offset]),
+                np.array([x_max, y_max, z_max + z_offset + 0.15])
+            )
+
+        # Update the geom size and position
+        self._cartesian_bounds_geom_id = self._model.geom("cartesian_bounds").id
+        self._model.geom_size[self._cartesian_bounds_geom_id] = self._model.geom("plate").size + np.array([0, 0, 0.075])
+        self._model.geom_pos[self._cartesian_bounds_geom_id] = self._data.geom("plate").xpos + np.array([0, 0, 0.075] @ rotation_matrix.T)
+        self._model.geom_quat[self._cartesian_bounds_geom_id] = self._model.body_quat[self._port_id]
+
 
         port_xyz = self.data.site_xpos[self._port_site_id]
         if self.tcp_xyz_randomize:
