@@ -65,7 +65,6 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
             "render_fps": int(np.round(1.0 / self.control_dt)),
         }
 
-        self.terminate = False
         self.external_viewer = None
 
         # Caching UR5e joint and actuator IDs.
@@ -267,12 +266,16 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         self._data.mocap_quat[0] = quat_des
         mujoco.mj_forward(self._model, self._data)
 
-        # while True:
-        #     current_tcp_pos = self._data.sensor("hande/pinch_pos").data.copy()
-        #     distance = np.linalg.norm(self._data.mocap_pos[0] - current_tcp_pos)
-        #     if distance <= self.reset_tolerance:
-        #         break  # Goal reached
-        #     self.step()
+        step_count = 0
+        while step_count < 1000:
+            current_tcp_pos = self._data.sensor("hande/pinch_pos").data.copy()
+            distance = np.linalg.norm(self._data.mocap_pos[0] - current_tcp_pos)
+            if distance <= self.reset_tolerance:
+                break  # Goal reached
+            self.step()
+            step_count += 1
+        
+        print(f"Resetting environment after {step_count} steps.")
 
         # plate_pos = self._data.geom("plate").xpos
         # plate_size = self._model.geom("plate").size
@@ -298,7 +301,6 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
 
         # Cache the initial block height.
         self._z_init = self._data.sensor("connector_head_pos").data[2]        
-        self.terminate = False
         obs = self._compute_observation()
         return obs, {}
     
@@ -375,7 +377,7 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         # print(self._data.qpos[self._ur5e_dof_ids])
 
         rew, task_complete = self._compute_reward()
-        terminated = self.time_limit_exceeded() or task_complete or self.terminate
+        terminated = self.time_limit_exceeded() or task_complete
 
         return obs, rew, terminated, False, {"succeed": task_complete}
 
