@@ -10,7 +10,6 @@ class PegEnvConfig():
         "physics_dt": 0.002,  # Time step for physics simulation
         "time_limit": 10.0,  # Time limit for each episode
         "render_mode": "rgb_array",  # Rendering mode ("human" or "rgb_array")
-        "image_obs": False,  # Whether to include image observations
         "seed": 0,  # Random seed
     }
 
@@ -41,7 +40,6 @@ class PegEnvConfig():
         "max_pos_error": 0.01,  # Maximum position error
         "max_ori_error": 0.03,  # Maximum orientation error
         "method": "dynamics",  # Control method ("dynamics", "pinv", "svd", etc.)
-        "admittance_control": False,  # Whether to use admittance control
         "inertia_compensation": False,  # Whether to compensate for inertia
         "pos_gains": (100, 100, 100),  # Proportional gains for position control
         # "ori_gains": (12.5, 12.5, 12.5),  # Proportional gains for orientation control

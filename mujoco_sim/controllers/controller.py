@@ -20,7 +20,6 @@ class Controller:
         self.integration_dt = config.get("integration_dt", model.opt.timestep)
         self.dof_ids = dof_ids
         self.model_names = MujocoModelNames(self.model)
-        self.admittance_control = config.get("admittance_control", False)
         self.force = np.zeros(3)
         self.torque = np.zeros(3)
 
@@ -167,27 +166,6 @@ class Controller:
         w_err *= -kp_kv_ori[:, 1]
 
         dw = self.ori_err + w_err
-
-        if self.admittance_control:
-            # Get the orientation matrix of the force-torque (FT) sensor
-            ft_ori_mat = self.data.site_xmat[self.model.site("attachment_site").id].reshape(3, 3)
-            self.force = self.data.sensor("ur5e/wrist_force").data
-            self.torque = self.data.sensor("ur5e/wrist_torque").data
-
-            # self.force_id = self.model_names.sensor_name2id["ur5e/wrist_force"]
-            # self.torque_id = self.model_names.sensor_name2id["ur5e/wrist_torque"]
-            # self.force_adr = self.model.sensor_adr[self.force_id]
-            # self.torque_adr = self.model.sensor_adr[self.torque_id]
-            # self.force_ndim = 3
-            # self.torque_ndim = 3
-            # force = self.data.sensordata[self.force_adr : self.force_adr + self.force_ndim]
-            # torque = self.data.sensordata[self.torque_adr : self.torque_adr + self.torque_ndim]
-            # print("Force: ", force)
-            # print("Torque: ", torque)
-
-            # Transform the force and torque from the sensor frame to the world frame
-            ddx += -ft_ori_mat @ self.force
-            dw += -ft_ori_mat @ self.torque
 
         error = np.concatenate([ddx, dw], axis=0)
 

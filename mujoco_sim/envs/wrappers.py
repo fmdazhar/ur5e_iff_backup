@@ -49,44 +49,23 @@ from gym.spaces import flatten_space, flatten
 class ObsWrapper(gym.ObservationWrapper):
     """
     This observation wrapper treats the observation space as a dictionary
-    of a flattened state space and optionally the images, if available.
+    of a flattened state space
     """
 
     def __init__(self, env):
         super().__init__(env)
 
-        if "images" in self.env.observation_space:
-            # If images are part of the observation space
-            self.observation_space = gym.spaces.Dict(
+        self.observation_space = gym.spaces.Dict(
             {
                 "state": flatten_space(self.env.observation_space["state"]),
-                **(self.env.observation_space["images"]),
-            })
-            
-            self.include_images = True
-        
-        else:
-            # If no image observations
-            self.observation_space = gym.spaces.Dict(
-                {
-                    "state": flatten_space(self.env.observation_space["state"]),
-                }
-            )
-            self.include_images = False
+            }
+        )
 
     def observation(self, obs):
 
-        # Include images only if available
-        if self.include_images:
-            # Flatten the state observation
-            obs = {
-                "state": flatten(self.env.observation_space["state"], obs["state"]),
-                **(obs["images"]),
-            }
-        else:
-            obs = {
-                "state": flatten(self.env.observation_space["state"], obs["state"]),
-            }
+        obs = {
+            "state": flatten(self.env.observation_space["state"], obs["state"]),
+        }
         return obs
     
 

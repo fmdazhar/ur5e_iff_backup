@@ -39,7 +39,6 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
 
         self._action_scale = config.ENV_CONFIG["action_scale"]
         self.render_mode = config.ENV_CONFIG["render_mode"]
-        self.image_obs = config.ENV_CONFIG["image_obs"]
 
         # UR5e-specific configuration
         self.ur5e_home = config.UR5E_CONFIG["home_position"]
@@ -101,6 +100,16 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         self._hand_geom = self._model.geom("hande_base").id
         self._connector_head_geom = self._model.geom("connector_head").id
 
+        # Update the default cartesian bounds geom size and position
+        self._cartesian_bounds_geom_id = self._model.geom("cartesian_bounds").id
+        # Extract bounds
+        lower_bounds, upper_bounds = self.cartesian_bounds
+        center = (upper_bounds + lower_bounds) / 2.0
+        size = (upper_bounds - lower_bounds) / 2.0
+
+        self._model.geom_size[self._cartesian_bounds_geom_id] = size
+        self._model.geom_pos[self._cartesian_bounds_geom_id] = center
+
         #preallocate memory
         self.quat_err = np.zeros(4)
         self.quat_conj = np.zeros(4)
@@ -138,45 +147,6 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
                 ),
             }
         )
-
-        if self.image_obs:
-            self.observation_space = gym.spaces.Dict(
-                {
-                    "state": gym.spaces.Dict(
-                        {
-                            "ur5e/tcp_pose": spaces.Box(
-                                -np.inf, np.inf, shape=(6,), dtype=np.float32
-                            ),
-                            "ur5e/tcp_vel": spaces.Box(
-                                -np.inf, np.inf, shape=(3,), dtype=np.float32
-                            ),
-                            "ur5e/gripper_pos": spaces.Box(
-                                -np.inf, np.inf, shape=(1,), dtype=np.float32
-                            ),
-                            "ur5e/wrist_force": spaces.Box(
-                                -np.inf, np.inf, shape=(3,), dtype=np.float32),
-                            "ur5e/wrist_torque": spaces.Box(
-                                -np.inf, np.inf, shape=(3,), dtype=np.float32),
-                        }
-                    ),
-                    "images": gym.spaces.Dict(
-                        {
-                            "front": gym.spaces.Box(
-                                low=0,
-                                high=255,
-                                shape=(render_spec.height, render_spec.width, 3),
-                                dtype=np.uint8,
-                            ),
-                            "wrist": gym.spaces.Box(
-                                low=0,
-                                high=255,
-                                shape=(render_spec.height, render_spec.width, 3),
-                                dtype=np.uint8,
-                            ),
-                        }
-                    ),
-                }
-            )
 
         self.action_space = gym.spaces.Box(
             low=np.asarray([-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0]),
@@ -262,24 +232,13 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         self._model.body_pos[self._port_id][2] += z_offset
         mujoco.mj_forward(self._model, self._data)
 
-        if self.restrict_cartesian_bounds:
-            # Update the cartesian bounds
-            self.cartesian_bounds = ()
-     
         # Update the geom size and position
         self._cartesian_bounds_geom_id = self._model.geom("cartesian_bounds").id
-        
-        # # Extract bounds
-        # lower_bounds, upper_bounds = self.cartesian_bounds
-        # center = (upper_bounds + lower_bounds) / 2.0
-        # size = (upper_bounds - lower_bounds) / 2.0
-
-        # Update geom position and size
-        # self._model.geom_size[self._cartesian_bounds_geom_id] = size
-        # self._model.geom_pos[self._cartesian_bounds_geom_id] = center
-        self._model.geom_size[self._cartesian_bounds_geom_id] = self._model.geom("plate").size * np.array([0.5, 0.6, 1]) + np.array([0.008, 0, 0.075])
-        self._model.geom_pos[self._cartesian_bounds_geom_id] = self._data.geom("plate").xpos + np.array([0, 0, 0.075] @ rotation_matrix.T)
-        self._model.geom_quat[self._cartesian_bounds_geom_id] = self._model.body_quat[self._port_id]
+        if self.restrict_cartesian_bounds:
+            # Update the cartesian bounds
+            self._model.geom_size[self._cartesian_bounds_geom_id] = self._model.geom("plate").size * np.array([0.5, 0.6, 1]) + np.array([0.008, 0, 0.075])
+            self._model.geom_pos[self._cartesian_bounds_geom_id] = self._data.geom("plate").xpos + np.array([0, 0, 0.075] @ rotation_matrix.T)
+            self._model.geom_quat[self._cartesian_bounds_geom_id] = self._model.body_quat[self._port_id]
 
         port_xyz = self.data.site_xpos[self._port_site_id]
         if self.tcp_xyz_randomize:
@@ -474,15 +433,11 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         wrist_torque = self._data.sensor("ur5e/wrist_torque").data
         obs["state"]["ur5e/wrist_torque"] = wrist_torque.astype(np.float32)
 
-        if self.image_obs:
-            obs["images"] = {}
-            obs["images"]["front"], obs["images"]["wrist"] = self.render()
-        else:
-            connector_pos = self._data.sensor("connector_head_pos").data.astype(np.float32)
-            connector_ori_quat = self._data.sensor("connector_head_quat").data.astype(np.float32)
-            connector_ori_euler = np.zeros(3)
-            mujoco.mju_quat2Vel(connector_ori_euler, connector_ori_quat, 1.0)
-            obs["state"]["connector_pose"] = np.concatenate((connector_pos, connector_ori_euler))
+        connector_pos = self._data.sensor("connector_head_pos").data.astype(np.float32)
+        connector_ori_quat = self._data.sensor("connector_head_quat").data.astype(np.float32)
+        connector_ori_euler = np.zeros(3)
+        mujoco.mju_quat2Vel(connector_ori_euler, connector_ori_quat, 1.0)
+        obs["state"]["connector_pose"] = np.concatenate((connector_pos, connector_ori_euler))
 
         if self.render_mode == "human":
             self._viewer.render(self.render_mode)
