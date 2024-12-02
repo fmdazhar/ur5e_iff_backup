@@ -31,9 +31,12 @@ def sample():
 
 obs, info = env.reset()
 
-for i in range(2000):
+for i in range(300):
     a = sample()
     obs, rew, done, truncated, info = env.step(a)
 
     if done:
         obs, info = env.reset()
+
+# Properly close the environment
+env.close()

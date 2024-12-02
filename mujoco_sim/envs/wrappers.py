@@ -16,8 +16,8 @@ class CustomObsWrapper(gym.ObservationWrapper):
         super().__init__(env)
 
         # Specify the keys you want to keep in the observation
-        self.keys_to_keep = [
-            "ur5e/tcp_pose",
+        self.keys_to_keep = {
+            # "ur5e/tcp_pose",
             "ur5e/tcp_vel",
             # "ur5e/gripper_pos",
             # "ur5e/joint_pos",
@@ -25,12 +25,14 @@ class CustomObsWrapper(gym.ObservationWrapper):
             "ur5e/wrist_force",
             "ur5e/wrist_torque",
             # "connector_pose"
-        ]
+        }
 
         # Modify the observation space to include only the desired keys
         original_state_space = self.observation_space["state"]
+        # Efficiently filter the observation space
         modified_state_space = gym.spaces.Dict({
-            key: original_state_space.spaces[key] for key in self.keys_to_keep
+            key: space for key, space in original_state_space.spaces.items()
+            if key in self.keys_to_keep
         })
 
         self.observation_space = gym.spaces.Dict({"state": modified_state_space})

@@ -52,6 +52,7 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         self.port_z_randomize = config.UR5E_CONFIG["port_z_randomize"]
         self.port_orientation_randomize = config.UR5E_CONFIG["port_orientation_randomize"]
         self.max_port_orient = config.UR5E_CONFIG["max_port_orient"]
+        self.mocap_orient = config.UR5E_CONFIG["mocap_orient"]
         self.randomization_bounds = config.UR5E_CONFIG["randomization_bounds"]
         self.reset_tolerance = config.UR5E_CONFIG["reset_tolerance"]
 
@@ -122,26 +123,27 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         dof_ids=self._ur5e_dof_ids,
         config=config.CONTROLLER_CONFIG,
         )
+        obs_bound = 1e6
         #TODO: 1.max obs space (everything except gripper) 2.wrist force, wrist torque, tcp vel 
         self.observation_space = gym.spaces.Dict(
             {
                 "state": gym.spaces.Dict(
                     {
                         "ur5e/tcp_pose": spaces.Box(
-                            -np.inf, np.inf, shape=(6,), dtype=np.float32
+                            -obs_bound, obs_bound, shape=(6,), dtype=np.float32
                         ),
                         "ur5e/tcp_vel": spaces.Box(
-                            -np.inf, np.inf, shape=(3,), dtype=np.float32
+                            -obs_bound, obs_bound, shape=(3,), dtype=np.float32
                         ),
                         "ur5e/gripper_pos": spaces.Box(
-                            -np.inf, np.inf, shape=(1,), dtype=np.float32
+                            -obs_bound, obs_bound, shape=(1,), dtype=np.float32
                         ),
-                        "ur5e/joint_pos": spaces.Box(-np.inf, np.inf, shape=(7,), dtype=np.float32),
-                        "ur5e/joint_vel": spaces.Box(-np.inf, np.inf, shape=(7,), dtype=np.float32),
-                        "ur5e/wrist_force": spaces.Box(-np.inf, np.inf, shape=(3,), dtype=np.float32),
-                        "ur5e/wrist_torque": spaces.Box(-np.inf, np.inf, shape=(3,), dtype=np.float32),
+                        "ur5e/joint_pos": spaces.Box(-obs_bound, obs_bound, shape=(6,), dtype=np.float32),
+                        "ur5e/joint_vel": spaces.Box(-obs_bound, obs_bound, shape=(6,), dtype=np.float32),
+                        "ur5e/wrist_force": spaces.Box(-obs_bound, obs_bound, shape=(3,), dtype=np.float32),
+                        "ur5e/wrist_torque": spaces.Box(-obs_bound, obs_bound, shape=(3,), dtype=np.float32),
                         "connector_pose": spaces.Box(
-                            -np.inf, np.inf, shape=(6,), dtype=np.float32
+                            -obs_bound, obs_bound, shape=(6,), dtype=np.float32
                         ),
                     }
                 ),
@@ -255,9 +257,11 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
             port_xyz[2] + 0.1
             ])
 
-        quat_des = np.zeros(4)
-        mujoco.mju_mat2Quat(quat_des, self.data.site_xmat[self._port_site_id])
-        self._data.mocap_quat[0] = quat_des
+
+        if self.mocap_orient:
+            quat_des = np.zeros(4)
+            mujoco.mju_mat2Quat(quat_des, self.data.site_xmat[self._port_site_id])
+            self._data.mocap_quat[0] = quat_des
         mujoco.mj_forward(self._model, self._data)
 
         step_count = 0
@@ -403,13 +407,13 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         tcp_ori_quat = self._data.sensor("hande/pinch_quat").data.astype(np.float32)
         tcp_ori_euler = np.zeros(3)
         mujoco.mju_quat2Vel(tcp_ori_euler, tcp_ori_quat, 1.0)
-        obs["state"]["ur5e/tcp_pose"] = np.concatenate((tcp_pos,tcp_ori_euler))                       
+        obs["state"]["ur5e/tcp_pose"] = np.concatenate((tcp_pos,tcp_ori_euler)).astype(np.float32)                     
 
         tcp_vel = self._data.sensor("hande/pinch_vel").data
         obs["state"]["ur5e/tcp_vel"] = tcp_vel.astype(np.float32)
 
         gripper_pos = np.array(
-            self._data.ctrl[self._gripper_ctrl_id] / 255, dtype=np.float32
+            [self._data.ctrl[self._gripper_ctrl_id] / 255], dtype=np.float32
         )
         obs["state"]["ur5e/gripper_pos"] = gripper_pos
 
@@ -433,7 +437,7 @@ class ur5ePegInHoleGymEnv(MujocoGymEnv):
         connector_ori_quat = self._data.sensor("connector_head_quat").data.astype(np.float32)
         connector_ori_euler = np.zeros(3)
         mujoco.mju_quat2Vel(connector_ori_euler, connector_ori_quat, 1.0)
-        obs["state"]["connector_pose"] = np.concatenate((connector_pos, connector_ori_euler))
+        obs["state"]["connector_pose"] = np.concatenate((connector_pos, connector_ori_euler)).astype(np.float32)
 
         if self.render_mode == "human":
             self._viewer.render(self.render_mode)
